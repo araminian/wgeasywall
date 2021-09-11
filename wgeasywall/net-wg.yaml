@@ -1,0 +1,29 @@
+WGNet:
+  Name: WGNet2
+  Subnet: 192.168.1.0/24
+  ReservedRange: 192.168.1.1-192.168.1.50
+  Server:
+    IPAddress: 192.168.1.1 # DATA['WGNets']['WGNet1']['Subnet']
+    PublicIPAddress: 116.203.236.147
+    Name: Server1
+    Port: '51820'
+    Hostname: Server1.wg2.cloudarmin.me
+    Routes: '192.168.1.0/24'
+  Clients:
+    - Name: Client1 
+      Hostname: Client1.wg1.cloudarmin.me
+      UnderControl: 'True'
+      Routes: '0.0.0.0/0'
+      Group: "Bonn::Dep1" # a Dep1 Object which its parent is Bonn
+      IPAddress: 192.168.1.21
+    - Name: Client2
+      Hostname: Client2.wg2.cloudarmin.me
+      UnderControl: 'True'
+      Group: "Bonn::Dep1"   # Group and Sub-Group Name must be unique !!! we can't have group Bonn::Dep1 and Berlin::Dep1
+NetworkResources:
+  - Name: Resource1
+    IPAddress: 178.1.2.0/24
+  - Name: Resource2
+    Hostname: google.com
+  - Name: Resource3
+    IPAddress: 1.1.1.1

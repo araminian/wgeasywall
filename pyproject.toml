@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "wgeasywall"
+version = "0.1.0"
+description = ""
+authors = ["Armin Aminian <rmin.aminian@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+typer = "^0.3.2"
+PyYAML = "^5.4.1"
+donna25519 = "^0.1.1"
+pymongo = "^3.12.0"
+prettyprint = "^0.1.5"
+netaddr = "^0.8.0"
+pyyed = "^1.4.3"
+coolname = "^1.1.0"
+tabulate = "^0.8.9"
+ipaddr = "^2.2.0"
+pydantic = "^1.8.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

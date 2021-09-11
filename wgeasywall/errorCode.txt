@@ -1,0 +1,6 @@
+gridfs : 6xx
+mongoo : 7xx
+parser : 5xx
+filenotfound: 4xx
+netowrk : 8xx
+wireguard: 9xx
