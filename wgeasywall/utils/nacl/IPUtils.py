@@ -9,6 +9,14 @@ from wgeasywall.utils.mongo.table.update import *
 from wgeasywall.utils.mongo.table.query import *
 import datetime
 
+def subtractCIDR(large,small):
+
+    largeCidr = ipaddress.ip_network(large)
+    smallCidr = ipaddress.ip_network(small)
+
+    return sorted(list(set(largeCidr) - set(smallCidr)))
+
+
 def findDuplicateIP(clientIPs):
 
     IPs = list(clientIPs.values())
@@ -17,6 +25,13 @@ def findDuplicateIP(clientIPs):
         if IPs.count(IP) > 1:
             dedupIPs[client] = IP
     return dedupIPs
+
+def isValidCIDR(CIDR):
+    try:
+        ipaddress.ip_network(CIDR)
+        return True
+    except ValueError:
+        return {'ErrorCode':'806','ErrorMsg':"The {0} is not Valid CIDR".format(CIDR)}
 
 def isValidIP(IP):
     try:
