@@ -1,8 +1,11 @@
+from hashlib import new
 from pathlib import Path
 from sys import path
+from traceback import format_exception_only
 from typing import Dict
 
 import netaddr
+from typer.main import Typer
 from wgeasywall.utils.mongo.table.add import *
 import typer
 from wgeasywall.utils.parse.networkdefinition import *
@@ -16,7 +19,10 @@ from wgeasywall.utils.graphml.generate import *
 import copy
 from coolname import generate_slug
 from wgeasywall.utils.wireguard.query import getInitilizedNetwork
-
+from wgeasywall.utils.parse.diffdetector import *
+from wgeasywall.utils.wireguard.query import *
+from wgeasywall.view import network_definition
+from wgeasywall.utils.mongo.core.collection import get_collection
 app = typer.Typer()
 
 @app.command()
@@ -54,6 +60,7 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
 
     # Check if the network subnet has overlap with others
     CIDR = networkDefiDict['WGNet']['Subnet']
+    # TODO Check if the CIDR is valid
    
     clientsControlLevel = getClientBasedControlLevel(networkDefiDict)
 
@@ -217,3 +224,137 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
     os.remove(networkTempPath)
     typer.echo("The provided Network definition is added to the database with the unique name of {0}. You can use this name to access the network definition.".format(netdefUniqueName))
     # TODO: Store GraphML to the database ?
+
+
+@app.command()
+def update(
+    networkFile: Path = typer.Option(...,"--network-file",help="The new network definition file"),
+):
+    
+    if not networkFile.is_file():
+        typer.echo("ERROR: Network Definition file can't be found!",err=True)
+        raise typer.Exit(code=1)
+    
+    networkDefiDict = get_configuration(networkFile)
+
+    if (type(Dict) and 'ErrorCode' in networkDefiDict):
+
+        typer.echo("ERORR: Can't read Network Definition file.  {0}".format(networkDefiDict['ErrorMsg']))
+        raise typer.Exit(code=1)
+
+    networkName = networkDefiDict['WGNet']['Name']
+
+    isInitilized = isNetworkInitilized(networkName)
+    if(type(isInitilized) == dict):
+        if(isInitilized['ErrorCode'] == '900'):
+            typer.echo(isInitilized['ErrorMsg'])
+            typer.echo("Can't update the network {0} which is not initialized yet".format(networkName))
+            raise typer.Exit(code=1)
+        else:
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            raise typer.Exit(code=1)
+
+    # GET OLD Network Definition
+    query = {'filename':'{0}.yaml'.format(networkName)}
+    files = findAbstract(networkName,'netdef',query=query)
+    oldNetworkDefiDict = yaml.safe_load(files[0].read().decode())
+    
+    # Get Net Section of OLD and NEW
+    newNetSettings = getWGNetSection('Net',networkDefiDict)
+    oldNetSettings = getWGNetSection('Net',oldNetworkDefiDict)
+
+
+    # Detect Difference between OLD and NEW in Network Settings
+    networkSettingsDiff = getNetDiff(networkDefiDict,oldNetworkDefiDict,networkName,'Net')['values_changed']
+
+    isChangeSubnet = (False,"","")
+
+    for item in networkSettingsDiff['Items']:
+        
+        if (item['AttributeChanged'] == 'ReservedRange'):
+            typer.echo("ERROR: The reserved range is fixed and can't be changed after initialization.")
+            typer.echo("Initialized value : {0} ".format(item['ObjectOldInfo']['ReservedRange']))
+            typer.echo("New value : {0} ".format(item['ObjectNewInfo']['ReservedRange']))
+            typer.echo("Please update the reserved range to initialized value and re-run command again")
+            raise typer.Exit(code=1)
+
+        if (item['AttributeChanged'] == 'Subnet'):
+            newSubnet = item['ObjectNewInfo']['Subnet']
+            oldSubnet = item['ObjectOldInfo']['Subnet']
+
+            validCIDR = isValidCIDR(newSubnet)
+            if type(validCIDR) == dict and 'ErrorCode' in validCIDR(newSubnet):
+                typer.echo("ERROR : {0} is not the valid CIDR for subnet.".format(newSubnet))
+                raise typer.Exit(code=1)
+
+            if not isLargerCIDR(newSubnet,oldSubnet):
+                typer.echo("ERROR: The new subnet {0} is not supernet of old subnet {1}.".format(newSubnet,oldSubnet))
+                typer.echo("The new subnet should be larger than old subnet")
+                typer.echo("Update Abort.")
+                raise typer.Exit(code=1)
+            else:
+                typer.echo("The network subnet will be updated from {0} to {1}.".format(oldSubnet,newSubnet))
+                isChangeSubnet = (True,newSubnet,oldSubnet)
+
+    ## Check if subnet is updated or not
+    if (isChangeSubnet[0]):
+
+        ### Update subnet
+        newCIDR = isChangeSubnet[1]
+        oldCIDR = isChangeSubnet[2]
+
+        serverInfo = networkDefiDict['WGNet']['Server']
+
+        additionalIPs = subtractCIDR(newCIDR,oldCIDR)
+        
+        newCIDRInfo = getCIDRInfo(newCIDR)
+
+        #### Update init table
+        networkQuery = {"_id":get_sha2(networkName)}
+        newInitValue = { "$set": { "cidr": newCIDR } }
+        resultUpadte = update_one_abstract(database_name='Networks',table_name='init',query=networkQuery,newvalue=newInitValue)
+        if (type(resultUpadte) == dict and 'ErrorCode' in resultUpadte):
+            typer.echo("ERORR: Can't connect to database and initilize network")
+            raise typer.Exit(code=1)
+        
+        #### Update Subnet table
+        CIDRData = {
+        '_id': get_sha2(newCIDR),
+        'cidr': newCIDR,
+        'mask': str(newCIDRInfo['Mask']),
+        'size': newCIDRInfo['Size'],
+        'firstIP': str(newCIDRInfo['FirstIP']),
+        'lastIP': str(newCIDRInfo['LastIP']),
+        'serverIP': serverInfo['IPAddress'],
+        'reservedRange': networkDefiDict['WGNet']['ReservedRange']
+         }
+        
+        subnetTable = get_collection(db_name=networkName,collection_name='subnet')
+        if (type(subnetTable) == dict and 'ErrorCode' in subnetTable):
+            typer.echo("ERROR: Can't connect to database. {0}".format(subnetTable))
+            raise typer.Exit(code=1)
+        subnetTable.drop()
+        add_entry_one(database_name=networkName,table_name='subnet',data=CIDRData)
+
+        #### Update FreeIP Table
+        lastIPofOldSubnet = ipaddress.IPv4Network(oldCIDR)[-1]
+        additionalIPs.append(ipaddress.IPv4Address(lastIPofOldSubnet))
+        additionalIPs= sorted(additionalIPs)
+        del additionalIPs[-1] # remove broadcast IP
+
+        freeIPLIST = []
+        for ip in additionalIPs:
+            data = {}
+            data['_id'] = get_sha2(str(ip))
+            data['IP'] = str(ip)
+            data['static'] = 'False'
+
+            freeIPLIST.append(data)
+        
+        add_entry_multiple(database_name=networkName,table_name='freeIP',data=freeIPLIST)
+        
+        
+
+
+
+    
