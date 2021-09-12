@@ -37,7 +37,7 @@ def isNetworkInitilized(networkName):
     networkInit = list(network['Enteries'])
 
     if (len(networkInit) == 0 ):
-        return {'ErrorCode':'900','ErrorMsg':"The network {0} is not initilized.".format(networkName)}
+        return {'ErrorCode':'900','ErrorMsg':"The network {0} is not initialized.".format(networkName)}
 
     return True
 
