@@ -26,6 +26,14 @@ def findDuplicateIP(clientIPs):
             dedupIPs[client] = IP
     return dedupIPs
 
+def isValidPort(port):
+    try:
+        portNum = int(port)
+        if not 49152 <= portNum <= 65535:
+            return {'ErrorCode':'806','ErrorMsg':"The {0} is not Valid port number. Should be between 49152-65535 . ".format(port)}
+    except ValueError:
+        return {'ErrorCode':'806','ErrorMsg':"The {0} is not Valid port number.".format(port)}
+
 def isValidCIDR(CIDR):
     try:
         ipaddress.ip_network(CIDR)
