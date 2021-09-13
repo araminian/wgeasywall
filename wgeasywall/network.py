@@ -6,6 +6,7 @@ from traceback import format_exception_only
 from typing import Dict
 
 import netaddr
+from pymongo.results import UpdateResult
 from typer.main import Typer
 from wgeasywall.utils.mongo.table.add import *
 import typer
@@ -22,7 +23,7 @@ from coolname import generate_slug
 from wgeasywall.utils.wireguard.query import getInitilizedNetwork
 from wgeasywall.utils.parse.diffdetector import *
 from wgeasywall.utils.wireguard.query import *
-from wgeasywall.view import network_definition
+from wgeasywall.view import network_definition, server
 from wgeasywall.utils.mongo.core.collection import get_collection
 app = typer.Typer()
 
@@ -398,6 +399,7 @@ def update(
         raise typer.Exit(code=1)
     
     ## Detect Changes 
+    ### Port
     isChangeServerPort = (False,"","")
     if (serverInfo['Port'] != oldServerInfo['Port']):
         typer.echo("The server's port will be updated form {0} to {1} .".format(oldServerInfo['Port'],serverInfo['Port']))
@@ -413,15 +415,53 @@ def update(
     isChangeServerPublicIP = (False,"","")
     if (serverInfo['PublicIPAddress'] != oldServerInfo['PublicIPAddress']):
         typer.echo("The server's public IP address will be updated form {0} to {1} .".format(oldServerInfo['PublicIPAddress'],serverInfo['PublicIPAddress']))
-        isChangeServerPublicIP = (False,serverInfo['PublicIPAddress'],oldServerInfo['PublicIPAddress'])
+        isChangeServerPublicIP = (True,serverInfo['PublicIPAddress'],oldServerInfo['PublicIPAddress'])
 
     ### Private IP
     isChangedServerIP = (False,"","")
     if (serverInfo['IPAddress'] != oldServerInfo['IPAddress']):
         typer.echo("The server's IP address will be updated form {0} to {1} .".format(oldServerInfo['IPAddress'],serverInfo['IPAddress']))
-        isChangedServerIP = (False,serverInfo['IPAddress'],oldServerInfo['IPAddress'])
+        if (serverInfo['IPAddress'] != oldServerInfo['IPAddress']):
+        #### Check if the IP is available to assign
+            IPQuery = {"IP":serverInfo['IPAddress']}
+            IPQueryResult = query_abstract(database_name=networkName,table_name='leasedIP',query=IPQuery)
+            if (type(IPQueryResult) == dict and 'ErrorCode' in IPQueryResult):
+                typer.echo("ERORR: Can't connect to database. {0}".format(IPQueryResult['ErrorMsg']))
+                raise typer.Exit(code=1)
+            IPQueryObject = list(IPQueryResult['Enteries'])
+            if (len(IPQueryObject) > 0):
+                typer.echo("ERROR: The IP {0} is already leased and can't be assigned to Server.".format(serverInfo['IPAddress']))
+                LintError = True
+                raise typer.Exit(code=1)
+        isChangedServerIP = (True,serverInfo['IPAddress'],oldServerInfo['IPAddress'])
+    
+    ## Update Server
+
+    ### return back the IP and get new One 
+    if (isChangedServerIP[0]):
+
+        freeIP = {}
+        freeIP['_id'] = get_sha2(isChangedServerIP[2])
+        freeIP['IP'] = str(isChangedServerIP[2])
+        freeIP['static'] = 'True'
+
+        addResult = add_entry_one(database_name=networkName,table_name='freeIP',data=freeIP)
+        if (type(addResult) == dict and 'ErrorCode' in addResult):
+            typer.echo("ERROR: Can't connect to database. {0}".format(addResult))
+            raise typer.Exit(code=1)
+        
+        requestResult = requestIP(networkName,serverInfo['Name'],IP=isChangedServerIP[1])
+        if (type(requestResult) == dict and 'ErrorCode' in requestResult ):
+            typer.echo ("ERROR: Can't request an IP for server. {0}".format(requestResult))
+            raise typer.Exit(code=1)
 
 
+    serverQuery = { "_id": get_sha2(serverInfo['Name']) }
+    serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
+    updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
+    if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
+        typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
+        raise typer.Exit(code=1)
     
     # Detect Difference between OLD and NEW in Network Settings
     networkSettingsDiff = getNetDiff(networkDefiDict,oldNetworkDefiDict,networkName,'Net')['values_changed']
@@ -449,6 +489,8 @@ def update(
             else:
                 typer.echo("The network subnet will be updated from {0} to {1}.".format(oldSubnet,newSubnet))
                 isChangeSubnet = (True,newSubnet,oldSubnet)
+
+    ## 
 
     ## Check if subnet is updated or not
     if (isChangeSubnet[0]):
