@@ -182,6 +182,19 @@ def linter(networkDefiDict):
         typer.echo("\n")
         LinterError = True
     
+    ## Check if the client has same IP as server
+    clientIPLikeServer= {}
+    for client,IP in clientIPs.items():
+        if IP == serverInfo['IPAddress']:
+            clientIPLikeServer[client] = IP
+    if len(clientIPLikeServer) > 0:
+        typer.echo("ERROR: These clients have IP addresses eqaul to server IP address")
+        for client,IP in clientIPLikeServer.items():
+            typer.echo("{0} with IP of {1}".format(client,IP))
+        typer.echo("\n")
+        LinterError = True
+
+
     # NetworkResource
     if ('NetworkResources' in networkDefiDict):
         networkResources = networkDefiDict['NetworkResources']
@@ -374,6 +387,8 @@ def update(
 
         typer.echo("ERORR: Can't read Network Definition file.  {0}".format(networkDefiDict['ErrorMsg']))
         raise typer.Exit(code=1)
+    
+    networkDefiDictNoTouch = copy.deepcopy(networkDefiDict)
 
     networkName = networkDefiDict['WGNet']['Name']
 
@@ -506,7 +521,15 @@ def update(
                 typer.echo("The network subnet will be updated from {0} to {1}.".format(oldSubnet,newSubnet))
                 isChangeSubnet = (True,newSubnet,oldSubnet)
 
-    ## 
+    ## Detect Client
+    ### Should use a network definition that has not changed !!!!
+    clientResult = getNetDiff(networkDefiDictNoTouch,oldNetworkDefiDict,networkName,'Clients')
+    
+    clientsIPChanged = []
+    for client in clientResult['values_changed']['Items']:
+        print(client)
+
+
 
     ## Check if subnet is updated or not
     if (isChangeSubnet[0]):
@@ -564,7 +587,8 @@ def update(
             freeIPLIST.append(data)
         
         add_entry_multiple(database_name=networkName,table_name='freeIP',data=freeIPLIST)
-        
+    
+
         
 
 
