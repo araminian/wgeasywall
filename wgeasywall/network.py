@@ -376,7 +376,8 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
 def update(
     networkFile: Path = typer.Option(...,"--network-file",help="The new network definition file"),
 ):
-    
+        # TODO Check if we have enough IP before Update!
+
     if not networkFile.is_file():
         typer.echo("ERROR: Network Definition file can't be found!",err=True)
         raise typer.Exit(code=1)
@@ -525,9 +526,91 @@ def update(
     ### Should use a network definition that has not changed !!!!
     clientResult = getNetDiff(networkDefiDictNoTouch,oldNetworkDefiDict,networkName,'Clients')
     
+    ### Detect IP,Group Changed
     clientsIPChanged = []
+    clientsGroupChanged = []
+    clientsHostnameChanged = []
+    clientsControlChanged = []
     for client in clientResult['values_changed']['Items']:
-        print(client)
+
+        if client['AttributeChanged'] == 'UnderControl':
+            data = {
+                'Name': client['ObjectName'],
+                'Old': client['ObjectOldInfo']['UnderControl'],
+                'New': client['ObjectNewInfo']['UnderControl']
+            }
+            typer.echo("Client '{0}' under-control attribute will be changed from {1} to {2}.".format(data['Name'],data['Old'],data['New']))
+            clientsControlChanged.append(data)
+        
+        if client['AttributeChanged'] == 'Hostname':
+            data = {
+                'Name': client['ObjectName'],
+                'Old': client['ObjectOldInfo']['Hostname'],
+                'New': client['ObjectNewInfo']['Hostname']
+            }
+            typer.echo("Client '{0}' hostname will be changed from {1} to {2}".format(data['Name'],data['Old'],data['New']))
+            clientsHostnameChanged.append(data)
+        
+        if client['AttributeChanged'] == 'Group':
+            data = {
+                'Name': client['ObjectName'],
+                'Old': client['ObjectOldInfo']['Group'],
+                'New': client['ObjectNewInfo']['Group']
+            }
+            typer.echo("Client '{0}' Group will be changed from {1} to {2}".format(data['Name'],data['Old'],data['New']))
+            clientsGroupChanged.append(data)
+
+        if client['AttributeChanged'] == 'IPAddress':
+            data = {
+                'Name': client['ObjectName'],
+                'Old': client['ObjectOldInfo']['IPAddress'],
+                'New': client['ObjectNewInfo']['IPAddress']
+            }
+            typer.echo("Client '{0}' IP address will be changed from {1} to {2}".format(data['Name'],data['Old'],data['New']))
+            clientsIPChanged.append(data)
+    
+    ### Detect Remove IP,Group
+    clientsRemovedIP = []
+    clientsRemovedGroup = []
+    for client in clientResult['dictionary_item_removed']['Items']:
+        if (client['AttributeRemoved'] == 'Group'):
+            data = {
+                'Name': client['ObjectName'],
+                'Old': client['ObjectOldInfo']['Group']
+            }
+            typer.echo("Client '{0}' group '{1}' will be removed.".format(data['Name'],data['Old']))
+            clientsRemovedGroup.append(data)
+
+        if (client['AttributeRemoved'] == 'IPAddress'):
+            data = {
+                'Name': client['ObjectName'],
+                'Old': client['ObjectOldInfo']['IPAddress']
+            }
+            typer.echo("Client '{0}' will release its IP {1} and get dynamic IP.".format(data['Name'],data['Old']))
+            clientsRemovedIP.append(data)
+    
+    ### Detect Add IP,Group
+    clientsAddedIP = []
+    clientsAddedGroup = []
+    for client in clientResult['dictionary_item_added']['Items']:
+
+        if (client['AttributeAdded'] == 'Group'):
+            data = {
+                'Name': client['ObjectName'],
+                'New': client['ObjectNewInfo']['Group']
+            }
+            typer.echo("Client {0} will be member of group {1} .".format(data['Name'],data['New']))
+            clientsAddedGroup.append(data)
+
+        if (client['AttributeAdded'] == 'IPAddress'):
+            data = {
+                'Name': client['ObjectName'],
+                'New': client['ObjectNewInfo']['IPAddress']
+            }
+            typer.echo("Client {0} will get the IP address of {1} . ".format(data['Name'],data['New']))
+            clientsAddedIP.append(data)
+    
+
 
 
 
