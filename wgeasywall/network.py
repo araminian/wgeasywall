@@ -182,6 +182,22 @@ def linter(networkDefiDict):
         typer.echo("\n")
         LinterError = True
     
+    # NetworkResource
+    if ('NetworkResources' in networkDefiDict):
+        networkResources = networkDefiDict['NetworkResources']
+
+        for resource in networkResources:
+            if ('IPAddress' in resource):
+                if ("/" in resource['IPAddress'] ):
+                    validCIDR = isValidCIDR(resource['IPAddress'])
+                    if (type(validCIDR) == dict and 'ErrorCode' in validCIDR):
+                        typer.echo("The Network {1} of network resource {0} is not valid .".format(resource['Name'],resource['IPAddress']))
+                        LinterError = True
+                else:
+                    validIP = isValidIP(resource['IPAddress'])
+                    if (type(validIP) == dict and 'ErrorCode' in validIP):
+                        typer.echo("The IP {1} of network resource {0} is not valid .".format(resource['Name'],resource['IPAddress']))
+                        LinterError = True
     return LinterError
 
 
