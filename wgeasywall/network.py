@@ -375,6 +375,8 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
 @app.command()
 def update(
     networkFile: Path = typer.Option(...,"--network-file",help="The new network definition file"),
+    keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
+
 ):
         # TODO Check if we have enough IP before Update!
 
@@ -430,7 +432,7 @@ def update(
         typer.echo("Update Abort.")
         raise typer.Exit(code=1)
     
-    ## Detect Changes 
+    ## Server Detect Changes 
     ### Port
     isChangeServerPort = (False,"","")
     if (serverInfo['Port'] != oldServerInfo['Port']):
@@ -467,34 +469,6 @@ def update(
                 raise typer.Exit(code=1)
         isChangedServerIP = (True,serverInfo['IPAddress'],oldServerInfo['IPAddress'])
     
-    ## Update Server
-
-    ### return back the IP and get new One 
-    if (isChangedServerIP[0]):
-
-        freeIP = {}
-        freeIP['_id'] = get_sha2(isChangedServerIP[2])
-        freeIP['IP'] = str(isChangedServerIP[2])
-        freeIP['static'] = 'True'
-
-        addResult = add_entry_one(database_name=networkName,table_name='freeIP',data=freeIP)
-        if (type(addResult) == dict and 'ErrorCode' in addResult):
-            typer.echo("ERROR: Can't connect to database. {0}".format(addResult))
-            raise typer.Exit(code=1)
-        
-        requestResult = requestIP(networkName,serverInfo['Name'],IP=isChangedServerIP[1])
-        if (type(requestResult) == dict and 'ErrorCode' in requestResult ):
-            typer.echo ("ERROR: Can't request an IP for server. {0}".format(requestResult))
-            raise typer.Exit(code=1)
-
-
-    serverQuery = { "_id": get_sha2(serverInfo['Name']) }
-    serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
-    updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
-    if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
-        typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
-        raise typer.Exit(code=1)
-    
     # Detect Difference between OLD and NEW in Network Settings
     networkSettingsDiff = getNetDiff(networkDefiDict,oldNetworkDefiDict,networkName,'Net')['values_changed']
 
@@ -525,20 +499,41 @@ def update(
     ## Detect Client
     ### Should use a network definition that has not changed !!!!
     clientResult = getNetDiff(networkDefiDictNoTouch,oldNetworkDefiDict,networkName,'Clients')
+
+    ### Detect Client Removed
+    clientsRemoved = []
+    for client in clientResult['iterable_item_removed']['Items']:
+
+        clientsRemoved.append(client)
+        typer.echo("Client '{0}' will be removed from the network.".format(client['ObjectName']))
+    
+    clientsAdded = []
+    for client in clientResult['iterable_item_added']['Items']:
+
+        clientsAdded.append(client)
+        typer.echo("Client '{0}' will be added to the network with these settings: \n{1}".format(client['ObjectName'],client['ObjectInfo']))
     
     ### Detect IP,Group Changed
     clientsIPChanged = []
     clientsGroupChanged = []
     clientsHostnameChanged = []
     clientsControlChanged = []
+    clientsUnderControl = []
+    clientNotUnderControl = []
     for client in clientResult['values_changed']['Items']:
-
+        
         if client['AttributeChanged'] == 'UnderControl':
             data = {
                 'Name': client['ObjectName'],
                 'Old': client['ObjectOldInfo']['UnderControl'],
                 'New': client['ObjectNewInfo']['UnderControl']
             }
+
+            if (data['New'] == 'False'):
+                clientNotUnderControl.append(data)
+            if (data['New'] == 'True'):
+                clientsUnderControl.append(data)
+
             typer.echo("Client '{0}' under-control attribute will be changed from {1} to {2}.".format(data['Name'],data['Old'],data['New']))
             clientsControlChanged.append(data)
         
@@ -568,6 +563,9 @@ def update(
             }
             typer.echo("Client '{0}' IP address will be changed from {1} to {2}".format(data['Name'],data['Old'],data['New']))
             clientsIPChanged.append(data)
+    if (len(clientNotUnderControl) > 0 and keyDirectory == None):
+        typer.echo("ERROR: At least one client's control level will be changed to not under control which key direcotry should be specified.")
+        raise typer.Exit(code=1)
     
     ### Detect Remove IP,Group
     clientsRemovedIP = []
@@ -610,10 +608,33 @@ def update(
             typer.echo("Client {0} will get the IP address of {1} . ".format(data['Name'],data['New']))
             clientsAddedIP.append(data)
     
+    ## Update Server
+    ### return back the IP and get new One 
+    if (isChangedServerIP[0]):
+
+        freeIP = {}
+        freeIP['_id'] = get_sha2(isChangedServerIP[2])
+        freeIP['IP'] = str(isChangedServerIP[2])
+        freeIP['static'] = 'True'
+
+        addResult = add_entry_one(database_name=networkName,table_name='freeIP',data=freeIP)
+        if (type(addResult) == dict and 'ErrorCode' in addResult):
+            typer.echo("ERROR: Can't connect to database. {0}".format(addResult))
+            raise typer.Exit(code=1)
+        
+        requestResult = requestIP(networkName,serverInfo['Name'],IP=isChangedServerIP[1])
+        if (type(requestResult) == dict and 'ErrorCode' in requestResult ):
+            typer.echo ("ERROR: Can't request an IP for server. {0}".format(requestResult))
+            raise typer.Exit(code=1)
 
 
-
-
+    serverQuery = { "_id": get_sha2(serverInfo['Name']) }
+    serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
+    updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
+    if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
+        typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
+        raise typer.Exit(code=1)
+    
     ## Check if subnet is updated or not
     if (isChangeSubnet[0]):
 
@@ -671,7 +692,8 @@ def update(
         
         add_entry_multiple(database_name=networkName,table_name='freeIP',data=freeIPLIST)
     
-
+    # TODO: ADD Dry-run feature
+    
         
 
 
