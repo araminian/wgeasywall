@@ -736,6 +736,40 @@ def update(
 
     # Clients start changes
 
+    ## Client IP Changed
+    ### Release IPs
+    for client in clientsIPChanged:
+        returnIP(networkName,clientName=client['Name'])
+
+    ### Get IPs
+    for client in clientsIPChanged:
+        requestIP(networkName,client['Name'],IP=client['New'])
+    
+    ## Client IP static removed
+    for client in clientsRemovedIP:
+
+        returnIP(networkName,clientName=client['Name'])
+
+        newIP = requestIP(networkName,clientName=client['Name'])
+        clientQuery = {"_id": get_sha2(client['Name'])}
+        newValues = { "$set": { "IPAddress": newIP } }
+        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+    
+    ## Client IP static Added
+    for client in clientsAddedIP:
+        
+        returnIP(networkName,clientName=client['Name'])
+
+        newIP = requestIP(networkName,clientName=client['Name'],IP=client['New'])
+        clientQuery = {"_id": get_sha2(client['Name'])}
+        newValues = { "$set": { "IPAddress": newIP } }
+        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+
+
+
+
+
+
 
         
 
