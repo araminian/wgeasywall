@@ -507,21 +507,39 @@ def update(
         clientsRemoved.append(client)
         typer.echo("Client '{0}' will be removed from the network.".format(client['ObjectName']))
     
-    clientsAdded = []
+    clientsAddedUnderControl = []
+    clientsAddedNotUnderControl = []
     for client in clientResult['iterable_item_added']['Items']:
+        if(client['ObjectInfo']['UnderControl'] == 'False'):
+            clientsAddedNotUnderControl.append(client)
+        if (client['ObjectInfo']['UnderControl'] == 'True'):
+            clientsAddedUnderControl.append(client)
 
-        clientsAdded.append(client)
         typer.echo("Client '{0}' will be added to the network with these settings: \n{1}".format(client['ObjectName'],client['ObjectInfo']))
+        if(client['ObjectInfo']['UnderControl'] == 'False' and keyDirectory == None):
+            typer.echo("ERROR: Client is not under control which means the key direcotry should be specified.")
+            raise typer.Exit(code=1)
     
-    ### Detect IP,Group Changed
+    ### Detect IP,Group,Routes Changed
     clientsIPChanged = []
     clientsGroupChanged = []
     clientsHostnameChanged = []
     clientsControlChanged = []
     clientsUnderControl = []
     clientNotUnderControl = []
+    clientRouteChanged = []
     for client in clientResult['values_changed']['Items']:
         
+        if client['AttributeChanged'] == 'Routes':
+
+            data = {
+                'Name': client['ObjectName'],
+                'Old': client['ObjectOldInfo']['Routes'],
+                'New': client['ObjectNewInfo']['Routes']
+            }
+            typer.echo("Client '{0}' routes will be changed from {1} to {2}.".format(data['Name'],data['Old'],data['New']))
+            clientRouteChanged.append(data)
+
         if client['AttributeChanged'] == 'UnderControl':
             data = {
                 'Name': client['ObjectName'],
@@ -567,10 +585,21 @@ def update(
         typer.echo("ERROR: At least one client's control level will be changed to not under control which key direcotry should be specified.")
         raise typer.Exit(code=1)
     
-    ### Detect Remove IP,Group
+    ### Detect Remove IP,Group,Routes
     clientsRemovedIP = []
     clientsRemovedGroup = []
+    clientsRemovedRoutes = []
     for client in clientResult['dictionary_item_removed']['Items']:
+
+        if (client['AttributeRemoved'] == 'Routes'):
+
+            data = {
+                'Name': client['ObjectName'],
+                'Old': client['ObjectOldInfo']['Routes']
+            }
+            typer.echo("Client '{0}' routes attributes will be removed and use network default route {1}.".format(data['Name'],serverInfo['Routes']))
+            clientsRemovedRoutes.append(data)
+
         if (client['AttributeRemoved'] == 'Group'):
             data = {
                 'Name': client['ObjectName'],
@@ -587,10 +616,20 @@ def update(
             typer.echo("Client '{0}' will release its IP {1} and get dynamic IP.".format(data['Name'],data['Old']))
             clientsRemovedIP.append(data)
     
-    ### Detect Add IP,Group
+    ### Detect Add IP,Group,Routes
     clientsAddedIP = []
     clientsAddedGroup = []
+    clientAddedRoutes = []
     for client in clientResult['dictionary_item_added']['Items']:
+
+        if (client['AttributeAdded'] == 'Routes'):
+
+            data = {
+                'Name': client['ObjectName'],
+                'New': client['ObjectNewInfo']['Routes']
+            } 
+            typer.echo("Client '{0}' will get new routes {1} and doesn't use network defualt routes.".format(data['Name'],data['New']))
+            clientAddedRoutes.append(client)
 
         if (client['AttributeAdded'] == 'Group'):
             data = {
@@ -693,7 +732,11 @@ def update(
         add_entry_multiple(database_name=networkName,table_name='freeIP',data=freeIPLIST)
     
     # TODO: ADD Dry-run feature
-    
+    # TODO: check enough IPs
+
+    # Clients start changes
+
+
         
 
 
