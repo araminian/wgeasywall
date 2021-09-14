@@ -743,9 +743,14 @@ def update(
 
     ### Get IPs
     for client in clientsIPChanged:
-        requestIP(networkName,client['Name'],IP=client['New'])
+
+        newIP = requestIP(networkName,clientName=client['Name'],IP=client['New'])
+        clientQuery = {"_id": get_sha2(client['Name'])}
+        newValues = { "$set": { "IPAddress": newIP } }
+        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
     
     ## Client IP static removed
+    clientIPInjectToNetworkDef = {}
     for client in clientsRemovedIP:
 
         returnIP(networkName,clientName=client['Name'])
@@ -754,7 +759,9 @@ def update(
         clientQuery = {"_id": get_sha2(client['Name'])}
         newValues = { "$set": { "IPAddress": newIP } }
         update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
-    
+        client['New'] = newIP
+        clientIPInjectToNetworkDef[client['Name']] = newIP #These IP should be injected to the network definition
+
     ## Client IP static Added
     for client in clientsAddedIP:
         
@@ -765,9 +772,15 @@ def update(
         newValues = { "$set": { "IPAddress": newIP } }
         update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
+    ## Client Group,Routes,Hostname,UnderControl Change
+    
+    for client in networkDefiDict['WGNet']['Clients']:
+        
+        clientQuery = {"_id": get_sha2(client['Name'])}
+        newValues = { "$set": { "Hostname": client['Hostname'], "UnderControl": client['UnderControl'], "Routes": client["Routes"], "Group": client['Group'] } }
+        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
-
-
+    
 
 
 
