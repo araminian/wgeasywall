@@ -6,6 +6,7 @@ from traceback import format_exception_only
 from typing import Dict
 
 import netaddr
+from pymongo import database
 from pymongo.results import UpdateResult
 from typer.main import Typer
 from wgeasywall.utils.mongo.table.add import *
@@ -376,6 +377,7 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
 def update(
     networkFile: Path = typer.Option(...,"--network-file",help="The new network definition file"),
     keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
+    dryRun : Optional[bool] = typer.Option(False,"--dry-run",help="Only show the updates and not apply them.")
 
 ):
         # TODO Check if we have enough IP before Update!
@@ -433,27 +435,32 @@ def update(
         raise typer.Exit(code=1)
     
     ## Server Detect Changes 
+    isServerChanged = False
     ### Port
     isChangeServerPort = (False,"","")
     if (serverInfo['Port'] != oldServerInfo['Port']):
         typer.echo("The server's port will be updated form {0} to {1} .".format(oldServerInfo['Port'],serverInfo['Port']))
         isChangeServerPort = (True,serverInfo['Port'],oldServerInfo['Port'])
-    
+        isServerChanged = True
+
     ### Routes
     isChangeServerRoutes = (False,"","")
     if (serverInfo['Routes'] != oldServerInfo['Routes']):
         typer.echo("The server's routes will be updated form {0} to {1} .".format(oldServerInfo['Routes'],serverInfo['Routes']))
         isChangeServerRoutes = (True,serverInfo['Routes'],oldServerInfo['Routes'])
-
+        isServerChanged = True
+        
     ### Public IP
     isChangeServerPublicIP = (False,"","")
     if (serverInfo['PublicIPAddress'] != oldServerInfo['PublicIPAddress']):
         typer.echo("The server's public IP address will be updated form {0} to {1} .".format(oldServerInfo['PublicIPAddress'],serverInfo['PublicIPAddress']))
         isChangeServerPublicIP = (True,serverInfo['PublicIPAddress'],oldServerInfo['PublicIPAddress'])
+        isServerChanged = True 
 
     ### Private IP
     isChangedServerIP = (False,"","")
     if (serverInfo['IPAddress'] != oldServerInfo['IPAddress']):
+        isServerChanged = True
         typer.echo("The server's IP address will be updated form {0} to {1} .".format(oldServerInfo['IPAddress'],serverInfo['IPAddress']))
         if (serverInfo['IPAddress'] != oldServerInfo['IPAddress']):
         #### Check if the IP is available to assign
@@ -497,32 +504,50 @@ def update(
                 isChangeSubnet = (True,newSubnet,oldSubnet)
 
     ## Detect Client
+    isClientChange = False # This attribute specify if we need to update clients 
+
     ### Should use a network definition that has not changed !!!!
     clientResult = getNetDiff(networkDefiDictNoTouch,oldNetworkDefiDict,networkName,'Clients')
 
     ### Detect Client Removed
     clientsRemoved = []
     for client in clientResult['iterable_item_removed']['Items']:
-
-        clientsRemoved.append(client)
+        
+        clientsRemoved.append(client['ObjectInfo'])
         typer.echo("Client '{0}' will be removed from the network.".format(client['ObjectName']))
+        isClientChange = True
     
     clientsAddedUnderControl = []
     clientsAddedNotUnderControl = []
     for client in clientResult['iterable_item_added']['Items']:
         if(client['ObjectInfo']['UnderControl'] == 'False'):
-            clientsAddedNotUnderControl.append(client)
+            clientsAddedNotUnderControl.append(client['ObjectInfo'])
         if (client['ObjectInfo']['UnderControl'] == 'True'):
-            clientsAddedUnderControl.append(client)
-
+            clientsAddedUnderControl.append(client['ObjectInfo'])
+        isClientChange = True
         typer.echo("Client '{0}' will be added to the network with these settings: \n{1}".format(client['ObjectName'],client['ObjectInfo']))
         if(client['ObjectInfo']['UnderControl'] == 'False' and keyDirectory == None):
             typer.echo("ERROR: Client is not under control which means the key direcotry should be specified.")
             raise typer.Exit(code=1)
+
+    # Exit when the key file is not found
+    keysNotSet = False
+    if (len(clientsAddedNotUnderControl) > 0):
+        for client in clientsAddedNotUnderControl:
+            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+            key = getFile(clientKeyPath)
+
+            if (type(key) == dict):
+                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client['Name']))
+                keysNotSet = True
+    if (keysNotSet):
+        typer.echo("Update Abort!")
+        raise typer.Exit(code=1)
     
     ### Detect IP,Group,Routes Changed
     clientsIPChanged = []
     clientsGroupChanged = []
+    isClientGroupChange = False # This variable check if the client group is changed
     clientsHostnameChanged = []
     clientsControlChanged = []
     clientsUnderControl = []
@@ -530,6 +555,7 @@ def update(
     clientRouteChanged = []
     for client in clientResult['values_changed']['Items']:
         
+        isClientChange = True
         if client['AttributeChanged'] == 'Routes':
 
             data = {
@@ -565,6 +591,7 @@ def update(
             clientsHostnameChanged.append(data)
         
         if client['AttributeChanged'] == 'Group':
+            isClientGroupChange = True
             data = {
                 'Name': client['ObjectName'],
                 'Old': client['ObjectOldInfo']['Group'],
@@ -604,7 +631,7 @@ def update(
     clientsRemovedGroup = []
     clientsRemovedRoutes = []
     for client in clientResult['dictionary_item_removed']['Items']:
-
+        isClientChange = True
         if (client['AttributeRemoved'] == 'Routes'):
 
             data = {
@@ -615,6 +642,7 @@ def update(
             clientsRemovedRoutes.append(data)
 
         if (client['AttributeRemoved'] == 'Group'):
+            isClientGroupChange = True
             data = {
                 'Name': client['ObjectName'],
                 'Old': client['ObjectOldInfo']['Group']
@@ -635,7 +663,7 @@ def update(
     clientsAddedGroup = []
     clientAddedRoutes = []
     for client in clientResult['dictionary_item_added']['Items']:
-
+        isClientChange = True
         if (client['AttributeAdded'] == 'Routes'):
 
             data = {
@@ -646,6 +674,7 @@ def update(
             clientAddedRoutes.append(client)
 
         if (client['AttributeAdded'] == 'Group'):
+            isClientGroupChange = True
             data = {
                 'Name': client['ObjectName'],
                 'New': client['ObjectNewInfo']['Group']
@@ -661,6 +690,11 @@ def update(
             typer.echo("Client {0} will get the IP address of {1} . ".format(data['Name'],data['New']))
             clientsAddedIP.append(data)
     
+    # Dry-Run Feature
+    if (dryRun):
+        typer.echo("Dry-run....Update Abort!")
+        raise typer.Exit(code=0)
+
     ## Update Server
     ### return back the IP and get new One 
     if (isChangedServerIP[0]):
@@ -680,13 +714,13 @@ def update(
             typer.echo ("ERROR: Can't request an IP for server. {0}".format(requestResult))
             raise typer.Exit(code=1)
 
-
-    serverQuery = { "_id": get_sha2(serverInfo['Name']) }
-    serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
-    updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
-    if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
-        typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
-        raise typer.Exit(code=1)
+    if (isServerChanged or isChangedServerIP[0]):
+        serverQuery = { "_id": get_sha2(serverInfo['Name']) }
+        serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
+        updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
+        if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
+            typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
+            raise typer.Exit(code=1)
     
     ## Check if subnet is updated or not
     if (isChangeSubnet[0]):
@@ -817,14 +851,98 @@ def update(
         newValues = { "$set": { "PublicKey": key, "PrivateKey": "" } }
         update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
+    # Clients Added
+    ## NotUnderControl 
+    for client in clientsAddedNotUnderControl:
+        
+        clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+        key = getFile(clientKeyPath)
+
+        if (type(key) == dict):
+            typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
+            raise typer.Exit(code=1)
+        
+        if ('IPAddress' in client):
+            IP = requestIP(network=networkName,clientName=client['Name'],IP=client['IPAddress'])
+            clientIPInjectToNetworkDef[client['Name']] = IP
+        else:
+            IP = requestIP(network=networkName,clientName=client['Name'])
+            clientIPInjectToNetworkDef[client['Name']] = IP
+
+        clientRoute = ""
+        if ('Routes' in client):
+            clientRoute = client['Routes']
+        else:
+            clientRoute = serverInfo['Routes']
+
+        clientGroup = ""
+        if ('Group' in client):
+            clientGroup = client['Group']
+
+        clientData = {
+            "_id": get_sha2(client['Name']),
+            "Name": client['Name'],
+            "Hostname": client['Hostname'],
+            "UnderControl": client['UnderControl'],
+            "Routes": clientRoute,
+            "IPAddress": IP,
+            "Group": clientGroup,
+            "PublicKey": key,
+            "PrivateKey": ""
+        }
+        add_entry_one(database_name=networkName,table_name='clients',data=clientData)
+
+    ## UnderControl
+    for client in clientsAddedUnderControl:
+        
+        key = generateEDKeyPairs()
+
+        if ('IPAddress' in client):
+            IP = requestIP(network=networkName,clientName=client['Name'],IP=client['IPAddress'])
+            clientIPInjectToNetworkDef[client['Name']] = IP
+        else:
+            IP = requestIP(network=networkName,clientName=client['Name'])
+            clientIPInjectToNetworkDef[client['Name']] = IP
+
+        clientRoute = ""
+        if ('Routes' in client):
+            clientRoute = client['Routes']
+        else:
+            clientRoute = serverInfo['Routes']
+
+        clientGroup = ""
+        if ('Group' in client):
+            clientGroup = client['Group']
+
+        clientData = {
+            "_id": get_sha2(client['Name']),
+            "Name": client['Name'],
+            "Hostname": client['Hostname'],
+            "UnderControl": client['UnderControl'],
+            "Routes": clientRoute,
+            "IPAddress": IP,
+            "Group": clientGroup,
+            "PublicKey": key[1],
+            "PrivateKey": key[0]
+        }
+        add_entry_one(database_name=networkName,table_name='clients',data=clientData)
+
+    # Client Remove
+    for client in clientsRemoved:
+        
+        returnIP(network=networkName,clientName=client['Name'])
+
+        clientQuery = {"_id": get_sha2(client['Name'])}
+
+        delete_abstract_one(database_name=networkName,table_name='clients',query=clientQuery)
     
 
+    # update network definition and inject client IP to network definition
+    if (len(clientIPInjectToNetworkDef) > 0):
+        for client in networkDefiDict['WGNet']['Clients']:
 
-
-
-
-
-        
+            if (client['Name'] in clientIPInjectToNetworkDef):
+                client['IPAddress'] = clientIPInjectToNetworkDef[client['Name']]        
 
 
 
