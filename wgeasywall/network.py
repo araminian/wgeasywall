@@ -585,6 +585,20 @@ def update(
         typer.echo("ERROR: At least one client's control level will be changed to not under control which key direcotry should be specified.")
         raise typer.Exit(code=1)
     
+    # Exit when the key file is not found
+    keysNotSet = False
+    if (len(clientNotUnderControl) > 0):
+        for client in clientNotUnderControl:
+            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+            key = getFile(clientKeyPath)
+
+            if (type(key) == dict):
+                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client['Name']))
+                keysNotSet = True
+    if (keysNotSet):
+        typer.echo("Update Abort!")
+        raise typer.Exit(code=1)
+    
     ### Detect Remove IP,Group,Routes
     clientsRemovedIP = []
     clientsRemovedGroup = []
@@ -780,7 +794,33 @@ def update(
         newValues = { "$set": { "Hostname": client['Hostname'], "UnderControl": client['UnderControl'], "Routes": client["Routes"], "Group": client['Group'] } }
         update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
+    # Clients which are underControl
+    for client in clientsUnderControl:
+        
+        keys = generateEDKeyPairs()
+        clientQuery = {"_id": get_sha2(client['Name'])}
+        newValues = { "$set": { "PublicKey": keys[1], "PrivateKey": keys[0]} }
+        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+
     
+    # Clients which are not underControl
+    for client in clientNotUnderControl:
+        
+        clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+        key = getFile(clientKeyPath)
+
+        if (type(key) == dict):
+            typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
+            raise typer.Exit(code=1)
+        
+        clientQuery = {"_id": get_sha2(client['Name'])}
+        newValues = { "$set": { "PublicKey": key, "PrivateKey": "" } }
+        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+
+    
+
+
+
 
 
 
