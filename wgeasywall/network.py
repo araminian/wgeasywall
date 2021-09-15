@@ -24,7 +24,7 @@ from coolname import generate_slug
 from wgeasywall.utils.wireguard.query import getInitilizedNetwork
 from wgeasywall.utils.parse.diffdetector import *
 from wgeasywall.utils.wireguard.query import *
-from wgeasywall.view import network_definition, server
+from wgeasywall.view import network_definition, server, subnet_report
 from wgeasywall.utils.mongo.core.collection import get_collection
 app = typer.Typer()
 
@@ -690,6 +690,33 @@ def update(
             typer.echo("Client {0} will get the IP address of {1} . ".format(data['Name'],data['New']))
             clientsAddedIP.append(data)
     
+    # Check Enough IPs
+    subnetReport = getSubnetReport(networkName)
+    
+    ## Enough Static IPs will be detected from finding duplication in the Network Definition
+
+    numFreeNonStaticIPs = subnetReport['NumFreeNonStaticIPs']
+
+    numClientWithDynamicIPAdded = 0
+    for client in (clientsAddedUnderControl + clientsAddedNotUnderControl):
+        if ('IPAddress' not in client):
+            numClientWithDynamicIPAdded += 1 
+    
+    numClientWithDynamicIPAdded += len(clientsRemovedIP)
+    
+    numDynamicIPAddedByClientRemoved = 0
+    for client in clientsRemoved:
+        if ('IPAddress' not in client):
+            numDynamicIPAddedByClientRemoved += 1
+
+    #numFreeStaticIPs = subnetReport['NumFreeStaticIPs']
+
+    if (not isChangeSubnet[0] and numFreeNonStaticIPs+numDynamicIPAddedByClientRemoved-numClientWithDynamicIPAdded < 0):
+
+        typer.echo("ERROR: There is no enough IPs to assing.")
+        raise typer.Exit(code=1)
+
+     
     # Dry-Run Feature
     if (dryRun):
         typer.echo("Dry-run....Update Abort!")
@@ -779,9 +806,6 @@ def update(
         
         add_entry_multiple(database_name=networkName,table_name='freeIP',data=freeIPLIST)
     
-    # TODO: ADD Dry-run feature
-    # TODO: check enough IPs
-
     # Clients start changes
 
     ## Client IP Changed
