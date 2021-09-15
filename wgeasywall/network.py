@@ -265,6 +265,21 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
         typer.echo("ERORR: There is more than one uncontrolled client in the network definition, keys directory should be specified!")
         raise typer.Exit(code=1)
 
+    keysNotSet = False
+    if (len(clientsControlLevel['Uncontrolled']) > 0):
+        for client in clientsControlLevel['Uncontrolled']:
+            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+            key = getFile(clientKeyPath)
+
+            if (type(key) == dict):
+                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found in key directory!".format(client['Name']))
+                keysNotSet = True
+
+    # If key is not found return
+    if (keysNotSet):
+        typer.echo('Initilization Fail!')
+        raise typer.Exit(code=1)
+
     # Network Part
     if (graphName == None):
         graphName = networkName
@@ -380,7 +395,6 @@ def update(
     dryRun : Optional[bool] = typer.Option(False,"--dry-run",help="Only show the updates and not apply them.")
 
 ):
-        # TODO Check if we have enough IP before Update!
 
     if not networkFile.is_file():
         typer.echo("ERROR: Network Definition file can't be found!",err=True)
