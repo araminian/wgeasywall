@@ -1,6 +1,7 @@
 import ipaddress
 from netaddr import *
 import netaddr
+import networkx
 from wgeasywall.utils.general.general import get_sha2
 from wgeasywall.utils.mongo.table.get import *
 from wgeasywall.utils.mongo.table.add import *
@@ -8,6 +9,19 @@ from wgeasywall.utils.mongo.table.delete import *
 from wgeasywall.utils.mongo.table.update import *
 from wgeasywall.utils.mongo.table.query import *
 import datetime
+
+# retund all clients IPs 
+def mapClients2IP(network):
+
+    IPdict = {}
+    result = get_all_entries(database_name=network,table_name='leasedIP')
+    if (type(result) == dict and 'ErrorCode' in result):
+        return result
+    clients =list(result['Enteries'])
+
+    for client in clients:
+        IPdict[client['Client']] = client['IP']
+    return IPdict
 
 def subtractCIDR(large,small):
 
