@@ -26,6 +26,7 @@ from wgeasywall.utils.parse.diffdetector import *
 from wgeasywall.utils.wireguard.query import *
 from wgeasywall.view import network_definition, server, subnet_report
 from wgeasywall.utils.mongo.core.collection import get_collection
+from wgeasywall.utils.graphml.update import *
 app = typer.Typer()
 
 def linter(networkDefiDict):
@@ -392,12 +393,17 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
 def update(
     networkFile: Path = typer.Option(...,"--network-file",help="The new network definition file"),
     keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
+    graphFile: Path = typer.Option(...,"--graph-file",help="The GraphML file"),
+    graphName: str = typer.Option(None,"--graph-file-name",help="The generated GraphML file name. Default: Network Name"),
     dryRun : Optional[bool] = typer.Option(False,"--dry-run",help="Only show the updates and not apply them.")
-
 ):
 
     if not networkFile.is_file():
         typer.echo("ERROR: Network Definition file can't be found!",err=True)
+        raise typer.Exit(code=1)
+    
+    if not graphFile.is_file():
+        typer.echo("ERROR: GraphML file can't be found!",err=True)
         raise typer.Exit(code=1)
     
     networkDefiDict = get_configuration(networkFile)
@@ -736,6 +742,26 @@ def update(
         typer.echo("Dry-run....Update Abort!")
         raise typer.Exit(code=0)
 
+    # GraphML
+    if(graphName == None):
+        graphName = networkName +'-Updated'
+    edgeToDrawName,groupsColor = getEdges2Draw(graphFile,networkDefiDictNoTouch,oldNetworkDefiDict)
+    g = pyyed.Graph()
+    addNodeCustomProperties(g)
+    clientsControlLevel = getClientBasedControlLevel(networkDefiDictNoTouch)
+    allClients =  clientsControlLevel['Controlled'] + clientsControlLevel['Uncontrolled']
+
+    mapName2Hostname = {}
+    for client in allClients:
+        mapName2Hostname[client['Name']] = client['Hostname']
+    mapName2Hostname [serverInfo['Name']] = serverInfo['Hostname']
+
+    allGroupObject = updateGroupsObject(g,networkDefiDictNoTouch,groupsColor)
+    generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName)
+    addEdges(g,edgeToDrawName,mapName2Hostname)
+    exportGraphFile(g,graphName)
+
+    return 
     ## Update Server
     ### return back the IP and get new One 
     if (isChangedServerIP[0]):

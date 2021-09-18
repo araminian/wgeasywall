@@ -113,7 +113,7 @@ def generateGroupsObject(graph,netDict):
     return allGroupObject
 
 
-def generateGraph(allGroupObject,netDict,graph,clients,graphName):
+def generateGraph(allGroupObject,netDict,graph,clients,graphName,mode='create'):
 
     
     network = netDict['WGNet']
@@ -152,5 +152,7 @@ def generateGraph(allGroupObject,netDict,graph,clients,graphName):
             resourceProperties['COLOR'] = resourceColor
             graph.add_node(resourceProperties['Name'],shape='octagon',font_style='italic',shape_fill=getRandomColor(),custom_properties=resourceProperties)
     
-    graph.write_graph('{0}.graphml'.format(graphName))
+    #graph.write_graph('{0}.graphml'.format(graphName))
 
+def exportGraphFile(graph,graphName):
+    graph.write_graph('{0}.graphml'.format(graphName))
