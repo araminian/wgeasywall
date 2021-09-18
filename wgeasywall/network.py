@@ -395,7 +395,8 @@ def update(
     keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
     graphFile: Path = typer.Option(...,"--graph-file",help="The GraphML file"),
     graphName: str = typer.Option(None,"--graph-file-name",help="The generated GraphML file name. Default: Network Name"),
-    dryRun : Optional[bool] = typer.Option(False,"--dry-run",help="Only show the updates and not apply them.")
+    dryRun : Optional[bool] = typer.Option(False,"--dry-run",help="Only show the updates and not apply them."),
+    graphDryRun: Optional[bool] = typer.Option(False,"--graph-dry-run",help="Only parse new network definition and existing graph file to generate new graph file. Not updating database based on the new network definition.")
 ):
 
     if not networkFile.is_file():
@@ -742,26 +743,6 @@ def update(
         typer.echo("Dry-run....Update Abort!")
         raise typer.Exit(code=0)
 
-    # GraphML
-    if(graphName == None):
-        graphName = networkName +'-Updated'
-    edgeToDrawName,groupsColor = getEdges2Draw(graphFile,networkDefiDictNoTouch,oldNetworkDefiDict)
-    g = pyyed.Graph()
-    addNodeCustomProperties(g)
-    clientsControlLevel = getClientBasedControlLevel(networkDefiDictNoTouch)
-    allClients =  clientsControlLevel['Controlled'] + clientsControlLevel['Uncontrolled']
-
-    mapName2Hostname = {}
-    for client in allClients:
-        mapName2Hostname[client['Name']] = client['Hostname']
-    mapName2Hostname [serverInfo['Name']] = serverInfo['Hostname']
-
-    allGroupObject = updateGroupsObject(g,networkDefiDictNoTouch,groupsColor)
-    generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName)
-    addEdges(g,edgeToDrawName,mapName2Hostname)
-    exportGraphFile(g,graphName)
-
-    return 
     ## Update Server
     ### return back the IP and get new One 
     if (isChangedServerIP[0]):
@@ -888,8 +869,12 @@ def update(
     
     for client in networkDefiDict['WGNet']['Clients']:
         
+        if 'Group' not in client:
+            group = 'Clients'
+        else:
+            group = client['Group']
         clientQuery = {"_id": get_sha2(client['Name'])}
-        newValues = { "$set": { "Hostname": client['Hostname'], "UnderControl": client['UnderControl'], "Routes": client["Routes"], "Group": client['Group'] } }
+        newValues = { "$set": { "Hostname": client['Hostname'], "UnderControl": client['UnderControl'], "Routes": client["Routes"], "Group": group } }
         update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
     # Clients which are underControl
@@ -974,7 +959,7 @@ def update(
         else:
             clientRoute = serverInfo['Routes']
 
-        clientGroup = ""
+        clientGroup = "Clients"
         if ('Group' in client):
             clientGroup = client['Group']
 
@@ -1008,6 +993,32 @@ def update(
             if (client['Name'] in clientIPInjectToNetworkDef):
                 client['IPAddress'] = clientIPInjectToNetworkDef[client['Name']]        
 
+     
+    # GraphML
+    networkDefiForGraph = copy.deepcopy(networkDefiDictNoTouch)
+
+    ## Update IPs
+    client2IP = mapClients2IP(network=networkName)
+    for client in networkDefiForGraph['WGNet']['Clients']:
+        client['IPAddress'] = client2IP[client['Name']]
+
+    if(graphName == None):
+        graphName = networkName +'-Updated'
+    edgeToDrawName,groupsColor = getEdges2Draw(graphFile,networkDefiDictNoTouch,oldNetworkDefiDict)
+    g = pyyed.Graph()
+    addNodeCustomProperties(g)
+    clientsControlLevel = getClientBasedControlLevel(networkDefiDictNoTouch)
+    allClients =  networkDefiForGraph['WGNet']['Clients']
+
+    mapName2Hostname = {}
+    for client in allClients:
+        mapName2Hostname[client['Name']] = client['Hostname']
+    mapName2Hostname [serverInfo['Name']] = serverInfo['Hostname']
+
+    allGroupObject = updateGroupsObject(g,networkDefiDictNoTouch,groupsColor)
+    generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName)
+    addEdges(g,edgeToDrawName,mapName2Hostname)
+    exportGraphFile(g,graphName)
 
 
     

@@ -142,6 +142,7 @@ def generateGraph(allGroupObject,netDict,graph,clients,graphName,mode='create'):
             #groupColor = allGroupObject[clientGroup].fill
             allGroupObject[clientGroup].add_node(clientProperties['Hostname'], shape="ellipse", font_style="plain",custom_properties=clientProperties)  # shape_fill=groupColor
         else:
+            # TODO: Check clientProperties['Group'] = 'Clients'
             allGroupObject['TOP'].add_node(clientProperties['Hostname'], shape="ellipse", font_style="plain",custom_properties=clientProperties) #shape_fill=networkColor
     if 'NetworkResources' in netDict:
         for Resource in netDict['NetworkResources']:
