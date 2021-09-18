@@ -4,6 +4,7 @@ from pathlib import Path
 from sys import path
 from traceback import format_exception_only
 from typing import Dict
+from wgeasywall.utils.mongo.core.db import copy_db, delete_db
 
 import netaddr
 from pymongo import database
@@ -417,6 +418,7 @@ def update(
     networkDefiDictNoTouch = copy.deepcopy(networkDefiDict)
 
     networkName = networkDefiDict['WGNet']['Name']
+    networkNameNoTouch = networkName
 
     isInitilized = isNetworkInitilized(networkName)
     if(type(isInitilized) == dict):
@@ -432,7 +434,12 @@ def update(
     query = {'filename':'{0}.yaml'.format(networkName)}
     files = findAbstract(networkName,'netdef',query=query)
     oldNetworkDefiDict = yaml.safe_load(files[0].read().decode())
-    
+
+    # GraphDryRun
+    if (graphDryRun):
+        networkName = "{0}-dry".format(networkName)
+        copy_db(srcName=networkNameNoTouch,targetName=networkName)
+        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':networkDefiDict['WGNet']['Subnet']})
 
     # Detect Difference between OLD and NEW in Server Settings 
 
@@ -498,7 +505,7 @@ def update(
         isChangedServerIP = (True,serverInfo['IPAddress'],oldServerInfo['IPAddress'])
     
     # Detect Difference between OLD and NEW in Network Settings
-    networkSettingsDiff = getNetDiff(networkDefiDict,oldNetworkDefiDict,networkName,'Net')['values_changed']
+    networkSettingsDiff = getNetDiff(networkDefiDict,oldNetworkDefiDict,networkNameNoTouch,'Net')['values_changed']
 
     isChangeSubnet = (False,"","")
 
@@ -528,7 +535,7 @@ def update(
     isClientChange = False # This attribute specify if we need to update clients 
 
     ### Should use a network definition that has not changed !!!!
-    clientResult = getNetDiff(networkDefiDictNoTouch,oldNetworkDefiDict,networkName,'Clients')
+    clientResult = getNetDiff(networkDefiDictNoTouch,oldNetworkDefiDict,networkNameNoTouch,'Clients')
 
     ### Detect Client Removed
     clientsRemoved = []
@@ -1019,6 +1026,13 @@ def update(
     generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName)
     addEdges(g,edgeToDrawName,mapName2Hostname)
     exportGraphFile(g,graphName)
+
+    if (graphDryRun):
+        delete_db(networkName)
+        networkQuery = {"_id":get_sha2(networkName)}
+        delete_abstract_one(database_name='Networks',table_name='init',query=networkQuery)
+
+
 
 
     
