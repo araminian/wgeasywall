@@ -1036,7 +1036,8 @@ def update(
 def clone(
     srcNetwork: str = typer.Option(...,"--src-network",help="The source network"),
     networkDefinitionName: str = typer.Option(...,"--network-definition-name",help="The unique name of network definition file. Use @latest to get the latest network definition"),
-    dstNetwork: str = typer.Option(...,"--dst-network",help="The source network")
+    dstNetwork: str = typer.Option(...,"--dst-network",help="The source network"),
+    keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients")
 ):
 
     # Check if the src network is already initilized 
@@ -1089,3 +1090,27 @@ def clone(
         os.remove(latestFileName)
         typer.echo("The {0} network is cloned to {1} network. The @latest network definition of network is cloned too with the unique name of {2}.".format(srcNetwork,dstNetwork,netdefUniqueName))
 
+    else:
+        query = {'filename':'{0}.yaml'.format(srcNetwork)}
+        files = findAbstract(srcNetwork,'netdef',query=query)
+
+        desiredFile = None
+        for file in files:
+            if(file.uniqueName == networkDefinitionName):
+                desiredFile = file
+
+        if (desiredFile == None):
+            typer.echo("ERROR: The network definition with the unique name {0} is not found.".format(networkDefinitionName))
+            raise typer.Exit(code=1)
+        
+        NetworkDefiDict = yaml.safe_load(desiredFile.read().decode())
+        NetworkDefiDict['WGNet']['Name'] = dstNetwork
+        randomSuffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
+        latestFileName = "{0}-{1}.yaml".format(dstNetwork,randomSuffix)
+        with open(latestFileName, 'w') as outfile:
+            yaml.dump(NetworkDefiDict, outfile, default_flow_style=False)
+        
+        typer.echo("Start clonning and initialization ....")
+        initilize(networkFile=Path(latestFileName),
+        keyDirectory=keyDirectory,graphName=dstNetwork)
+        os.remove(latestFileName)

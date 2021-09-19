@@ -16,3 +16,12 @@ python3 main.py wireguard key-generate --network-name WGNet1 --clients-list Clie
 
 # All Clients
 python3 main.py wireguard key-generate --network-name WGNet1 --clients --keys-dir /home/armin/Thesis/WireGuard-Config-Generator/wgeasywall/keysdir --output-dir /home/armin/wgconf
+
+# Update
+python3 main.py network update --network-file net-graph-new.yaml --keys-dir /home/armin/Thesis/WireGuard-Config-Generator/wgeasywall/keysdir --graph-file WGNet1-U.graphml --graph-dry-run
+
+# Clone latest 
+python3 main.py network clone --src-network WGNet1 --network-definition-name @latest --dst-network WGNet2
+
+# Clone from a version
+python3 main.py network clone --src-network WGNet1 --network-definition-name nebulous-wolverine --dst-network WGNet2 --keys-dir /home/armin/Thesis/WireGuard-Config-Generator/wgeasywall/keysdir
