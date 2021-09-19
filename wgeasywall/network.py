@@ -20,7 +20,7 @@ from wgeasywall.utils.nacl.keyGenerate import *
 from wgeasywall.utils.nacl.IPUtils import *
 from wgeasywall.utils.mongo.gridfsmongo import *
 from wgeasywall.utils.graphml.generate import *
-import copy
+import copy , string
 from coolname import generate_slug
 from wgeasywall.utils.wireguard.query import getInitilizedNetwork
 from wgeasywall.utils.parse.diffdetector import *
@@ -1032,7 +1032,60 @@ def update(
         networkQuery = {"_id":get_sha2(networkName)}
         delete_abstract_one(database_name='Networks',table_name='init',query=networkQuery)
 
+@app.command()
+def clone(
+    srcNetwork: str = typer.Option(...,"--src-network",help="The source network"),
+    networkDefinitionName: str = typer.Option(...,"--network-definition-name",help="The unique name of network definition file. Use @latest to get the latest network definition"),
+    dstNetwork: str = typer.Option(...,"--dst-network",help="The source network")
+):
 
-
-
+    # Check if the src network is already initilized 
+    isInitilized = isNetworkInitilized(srcNetwork)
+    if(type(isInitilized) == dict):
+        if(isInitilized['ErrorCode'] == '900'):
+            typer.echo(isInitilized['ErrorMsg'])
+            raise typer.Exit(code=1)
+        else:
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            raise typer.Exit(code=1)
     
+    # Check if the dst network is already initilized!
+    isInitilized = isNetworkInitilized(dstNetwork)
+    dstNetworkInit = False
+    if(type(isInitilized) == dict):
+        if(isInitilized['ErrorCode'] == '900'):
+            dstNetworkInit = True
+        else:
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            raise typer.Exit(code=1)
+    # TODO : Find Typo initilized -> initialized
+    if not dstNetworkInit:
+        typer.echo("ERROR: The destinition network {0} is already initialized and can't be used as destinition network.".format(dstNetwork))
+        raise typer.Exit(code=1)
+
+    if (networkDefinitionName == '@latest'):
+        # GET OLD Network Definition
+        query = {'filename':'{0}.yaml'.format(srcNetwork)}
+        files = findAbstract(srcNetwork,'netdef',query=query)
+        latestNetworkDefiDict = yaml.safe_load(files[0].read().decode())
+
+        ## Copy DB and init 
+        copy_db(srcNetwork,dstNetwork)
+        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(dstNetwork),'network':dstNetwork,'initilized':True, 'cidr':latestNetworkDefiDict['WGNet']['Subnet']})
+
+
+        ## update the network name to dst network
+        latestNetworkDefiDict['WGNet']['Name'] = dstNetwork
+        ## make the latest to file
+        randomSuffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
+        latestFileName = "{0}-{1}.yaml".format(dstNetwork,randomSuffix)
+        with open(latestFileName, 'w') as outfile:
+            yaml.dump(latestNetworkDefiDict, outfile, default_flow_style=False)
+
+        networkTempPath = create_temporary_copy(path=latestFileName,networkName="{0}.yaml".format(dstNetwork))
+        netdefUniqueName = generate_slug(2)
+        upload(db=dstNetwork,fs='netdef',filePath=networkTempPath,uniqueName=netdefUniqueName)
+        os.remove(networkTempPath)
+        os.remove(latestFileName)
+        typer.echo("The {0} network is cloned to {1} network. The @latest network definition of network is cloned too with the unique name of {2}.".format(srcNetwork,dstNetwork,netdefUniqueName))
+
