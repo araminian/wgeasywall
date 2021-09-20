@@ -1114,3 +1114,47 @@ def clone(
         initilize(networkFile=Path(latestFileName),
         keyDirectory=keyDirectory,graphName=dstNetwork)
         os.remove(latestFileName)
+    
+@app.command()
+def remove(
+    Network: str = typer.Option(...,"--network",help="The network which should be deleted")
+):
+    # Check if the src network is already initilized 
+    isInitilized = isNetworkInitilized(Network)
+    if(type(isInitilized) == dict):
+        if(isInitilized['ErrorCode'] == '900'):
+            typer.echo(isInitilized['ErrorMsg'])
+            raise typer.Exit(code=1)
+        else:
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            raise typer.Exit(code=1)
+    
+    typer.echo("Start removing network {0} ... ".format(Network))
+    randomSuffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
+    directory = "{0}-{1}".format(Network,randomSuffix)
+    currentDirectory = os.getcwd()
+    dirPath = os.path.join(currentDirectory, directory)
+
+    query = {'filename':'{0}.yaml'.format(Network)}
+    files = findAbstract(Network,'netdef',query=query)
+
+    os.mkdir(dirPath)
+    for file in files:
+        uploadDate = file.upload_date.strftime("%m-%d-%Y-%H-%M-%S")
+        fileName = "{0}-{1}.yaml".format(file.uniqueName,uploadDate)
+        fileFullPath = os.path.join(dirPath, fileName)
+
+        NetworkDefiDict = yaml.safe_load(file.read().decode())
+        
+        with open(fileFullPath, 'w') as outfile:
+            yaml.dump(NetworkDefiDict, outfile, default_flow_style=False)
+
+
+    delete_db(Network)
+    networkQuery = {"_id":get_sha2(Network)}
+    result = delete_abstract_one(database_name='Networks',table_name='init',query=networkQuery)
+    if(type(result) == dict and 'ErrorCode' in result ):
+        typer.echo("ERROR: Can't connect to database. {0}".format(result['ErrorMsg']))
+        raise typer.Exit(code=1)
+
+    typer.echo("The network {0} is removed and its network definition files are stored in the generated sub directory {1} .".format(Network,dirPath))

@@ -25,3 +25,6 @@ python3 main.py network clone --src-network WGNet1 --network-definition-name @la
 
 # Clone from a version
 python3 main.py network clone --src-network WGNet1 --network-definition-name nebulous-wolverine --dst-network WGNet2 --keys-dir /home/armin/Thesis/WireGuard-Config-Generator/wgeasywall/keysdir
+
+# Remove Network
+python3 main.py network remove --network WGNet2
