@@ -28,3 +28,6 @@ python3 main.py network clone --src-network WGNet1 --network-definition-name neb
 
 # Remove Network
 python3 main.py network remove --network WGNet2
+
+# Generate hosts file 
+python3 main.py network generate-hosts-file --network WGNet1

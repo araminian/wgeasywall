@@ -29,6 +29,8 @@ from wgeasywall.view import network_definition, server, subnet_report
 from wgeasywall.utils.mongo.core.collection import get_collection
 from wgeasywall.utils.graphml.update import *
 app = typer.Typer()
+from python_hosts import Hosts, HostsEntry
+
 
 def linter(networkDefiDict):
 
@@ -1158,3 +1160,51 @@ def remove(
         raise typer.Exit(code=1)
 
     typer.echo("The network {0} is removed and its network definition files are stored in the generated sub directory {1} .".format(Network,dirPath))
+
+@app.command()
+def generate_hosts_file(
+    Network: str = typer.Option(...,"--network",help="The network which hosts file will be generated for")
+):
+    
+    # Check if the src network is already initilized 
+    isInitilized = isNetworkInitilized(Network)
+    if(type(isInitilized) == dict):
+        if(isInitilized['ErrorCode'] == '900'):
+            typer.echo(isInitilized['ErrorMsg'])
+            raise typer.Exit(code=1)
+        else:
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            raise typer.Exit(code=1)
+
+
+    clientQuery = get_all_entries(database_name=Network,table_name='clients')
+    if(type(clientQuery) == dict and 'ErrorCode' in clientQuery):
+        typer.echo("ERROR: Can't connect to database. {0}".format(clientQuery['ErrorMsg']))
+        raise typer.Exit(code=1)
+    
+    clients = clientQuery['Enteries']
+
+    serverQuery = get_all_entries(database_name=Network,table_name='server')
+    if(type(serverQuery) == dict and 'ErrorCode' in serverQuery):
+        typer.echo("ERROR: Can't connect to database. {0}".format(serverQuery['ErrorMsg']))
+        raise typer.Exit(code=1)
+    server = serverQuery['Enteries'][0]
+
+
+    randomSuffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
+
+    hostFileName = "{0}-{1}-{2}".format("Hosts",Network,randomSuffix)
+    hosts = Hosts(path=hostFileName)
+
+    hostEnteries = []
+
+    serverEntry = HostsEntry(entry_type='ipv4', address=server['IPAddress'], names=[server['Name'], server['Hostname']])
+    hostEnteries.append(serverEntry)
+
+    for client in clients:
+        entry = HostsEntry(entry_type='ipv4', address=client['IPAddress'], names=[client['Name'], client['Hostname']])
+        hostEnteries.append(entry)
+    
+    hosts.add(hostEnteries)
+    hosts.write()
+    typer.echo("Hosts file '{0}' is generated in current working directory.".format(hostFileName))
