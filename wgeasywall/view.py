@@ -136,7 +136,7 @@ def network_definition(
     elif (networkDefinitionName=='@latest'):
         typer.echo("Get latest upload network definition....")
         typer.echo("-"*20)
-        typer.echo(files[0].read().decode())
+        typer.echo(files[-1].read().decode())
     else:
         tableData = []
         desiredFile = None 
