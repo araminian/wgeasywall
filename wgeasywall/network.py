@@ -382,6 +382,7 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
     allGroupObject = generateGroupsObject(g,networkDefiDictNoTouch)
     generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients2addGraph,graphName)
     add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':CIDR})
+    exportGraphFile(g,graphName)
 
     # Upload Network File to DataBase
     networkTempPath = create_temporary_copy(path=networkFile,networkName="{0}.yaml".format(networkName))
@@ -435,7 +436,7 @@ def update(
     # GET OLD Network Definition
     query = {'filename':'{0}.yaml'.format(networkName)}
     files = findAbstract(networkName,'netdef',query=query)
-    oldNetworkDefiDict = yaml.safe_load(files[0].read().decode())
+    oldNetworkDefiDict = yaml.safe_load(files[-1].read().decode())
 
     # GraphDryRun
     if (graphDryRun):
@@ -1023,16 +1024,27 @@ def update(
     for client in allClients:
         mapName2Hostname[client['Name']] = client['Hostname']
     mapName2Hostname [serverInfo['Name']] = serverInfo['Hostname']
-
+ 
     allGroupObject = updateGroupsObject(g,networkDefiDictNoTouch,groupsColor)
     generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName)
-    addEdges(g,edgeToDrawName,mapName2Hostname)
+    # Check if the Nodes are removed from network definition
+    resourcesAndClients = getResourcesAndClients(networkDefiDictNoTouch)
+    edges2Draw = checkRemovedNodeInEdge(resourcesAndClients,edgeToDrawName)
+    addEdges(g,edges2Draw,mapName2Hostname)
+   
     exportGraphFile(g,graphName)
-
+    # NOTE : EACH update should be executed with the graphfile and its corresponding graphfile , if not it cause inconssitency in the generated graphfile
     if (graphDryRun):
         delete_db(networkName)
         networkQuery = {"_id":get_sha2(networkName)}
         delete_abstract_one(database_name='Networks',table_name='init',query=networkQuery)
+        raise typer.Exit(code=0)
+    # Upload Network File to DataBase
+    networkTempPath = create_temporary_copy(path=networkFile,networkName="{0}.yaml".format(networkName))
+    netdefUniqueName = generate_slug(2)
+    upload(db=networkName,fs='netdef',filePath=networkTempPath,uniqueName=netdefUniqueName)
+    os.remove(networkTempPath)
+    typer.echo("The provided Network definition is added to the database with the unique name of {0}. You can use this name to access the network definition.".format(netdefUniqueName))
 
 @app.command()
 def clone(
@@ -1070,7 +1082,7 @@ def clone(
         # GET OLD Network Definition
         query = {'filename':'{0}.yaml'.format(srcNetwork)}
         files = findAbstract(srcNetwork,'netdef',query=query)
-        latestNetworkDefiDict = yaml.safe_load(files[0].read().decode())
+        latestNetworkDefiDict = yaml.safe_load(files[-1].read().decode())
 
         ## Copy DB and init 
         copy_db(srcNetwork,dstNetwork)

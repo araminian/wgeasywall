@@ -1,4 +1,4 @@
-import random 
+import random
 import networkx as nx
 import wgeasywall.utils.graphml.parser as parser
 import wgeasywall.utils.parse.diffdetector as diffdetector
@@ -176,4 +176,33 @@ def addEdges(graph,edgeToDrawName,mapName2Hostname):
             src = mapName2Hostname[src]
         if (dst in mapName2Hostname):
             dst = mapName2Hostname[dst]
+        
         graph.add_edge(src,dst)
+
+def getResourcesAndClients(networkDefiDict):
+    items = []
+
+    for client in networkDefiDict['WGNet']['Clients']:
+        items.append(client['Name'])
+    for resource in networkDefiDict['NetworkResources']:
+        items.append(resource['Name'])
+    
+    return items
+
+def checkRemovedNodeInEdge(clientsAndResources,edgeToDrawName):
+
+    edge2Draw = []
+
+    for edge in edgeToDrawName:
+
+        src = edge[0]
+        dst = edge[1]
+
+        if ('::' in src and '::' in dst):
+            continue
+        if( '::' not in src and src not in clientsAndResources and src != 'Clients'):
+            continue
+        if ('::' not in dst and dst not in clientsAndResources and dst != 'Clients'):
+            continue
+        edge2Draw.append((src,dst))
+    return edge2Draw
