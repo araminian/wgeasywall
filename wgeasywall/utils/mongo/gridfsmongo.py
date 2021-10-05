@@ -6,6 +6,21 @@ from wgeasywall.utils.mongo.core.db import get_db
 import gridfs
 from pathlib import Path
 
+def delete(db,fs,fileID):
+
+    database = get_db(db)
+    try:
+        fileSystem = gridfs.GridFS(database,collection=fs)
+    except gridfs.errors.GridFSError as e:
+        return {"ErrorCode":"601","ErrorMsg":"GridFS Download: {0}.".format(e)}
+    
+    try:
+        fileSystem.delete(fileID)
+    except gridfs.errors.GridFSError as e:
+        return {"ErrorCode":"601","ErrorMsg":"GridFS Delete: {0}.".format(e)}
+    
+    return True
+
 def deleteOldest(db,fs,fileName,count,maxItems):
         
     database = get_db(db)
