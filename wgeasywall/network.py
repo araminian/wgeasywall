@@ -236,7 +236,7 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
     
     networkDefiDict = get_configuration(networkFile)
 
-    if (type(Dict) and 'ErrorCode' in networkDefiDict):
+    if (type(dict) and 'ErrorCode' in networkDefiDict):
 
         typer.echo("ERORR: Can't read Network Definition file.  {0}".format(networkDefiDict['ErrorMsg']))
         raise typer.Exit(code=1)
@@ -413,7 +413,7 @@ def update(
     
     networkDefiDict = get_configuration(networkFile)
 
-    if (type(Dict) and 'ErrorCode' in networkDefiDict):
+    if (type(dict) and 'ErrorCode' in networkDefiDict):
 
         typer.echo("ERORR: Can't read Network Definition file.  {0}".format(networkDefiDict['ErrorMsg']))
         raise typer.Exit(code=1)

@@ -16,12 +16,14 @@ from wgeasywall.utils.parse.networkdefinition import *
 from netaddr import IPAddress
 import wgeasywall.view as view
 import wgeasywall.wireguard as wireguard
+import wgeasywall.ruleAsCode as ruleAsCode
 
 app = typer.Typer()
 app.add_typer(config.app,name="config",help="Commands related to configuration generator")
 app.add_typer(network.app,name="network",help="Commands related to WireGuard networks and graph")
 app.add_typer(view.app,name="view",help="Commands related to reprting")
 app.add_typer(wireguard.app,name="wireguard",help="Commands related to wireguard and its configurations")
+app.add_typer(ruleAsCode.app,name='RaaC',help="Commands related to the Rule as a Code and its configurations")
 
 @app.callback()
 def main(ctx: typer.Context):
