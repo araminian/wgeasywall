@@ -31,3 +31,6 @@ python3 main.py network remove --network WGNet2
 
 # Generate hosts file 
 python3 main.py network generate-hosts-file --network WGNet1
+
+# Add function to the database
+python3 main.py RaaC import-function --function-file func-conntrack2.yaml --version beta
