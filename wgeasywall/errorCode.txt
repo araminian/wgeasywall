@@ -4,3 +4,4 @@ parser : 5xx
 filenotfound: 4xx
 netowrk : 8xx
 wireguard: 9xx
+ruleasCode: 3xx

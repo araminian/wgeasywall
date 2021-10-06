@@ -1,4 +1,6 @@
 from re import sub
+
+import yaml
 from wgeasywall.utils.mongo import table
 import typer
 from wgeasywall.utils.mongo.table.get import *
@@ -7,8 +9,13 @@ from tabulate import *
 from wgeasywall.utils.general.general import *
 from wgeasywall.utils.nacl.IPUtils import getSubnetReport
 from wgeasywall.utils.mongo.gridfsmongo import *
+from wgeasywall.utils.ruleAsCode.function import extractFunctionDefinition
+from wgeasywall.utils.ruleAsCode.action import extractActionDefinition
 
 app = typer.Typer()
+raac = typer.Typer()
+
+app.add_typer(raac,name='RaaC',help="Reporting Rule as a Code")
 
 @app.command()
 def networks():
@@ -279,6 +286,102 @@ def server(
         Data = [serverObject['Name'],serverObject['Hostname'],serverObject['IPAddress'],serverObject['PublicIPAddress'],serverObject['Port'],serverObject['Routes'],serverObject['PublicKey']]
         advanceView.append(Data)
         typer.echo(tabulate(advanceView,headers=['Name','Hostname','IPAddress','PublicIPAddress','Port','Routes','Public Key'],tablefmt="pretty"))
+
+
+@raac.command()
+def action(
+    action: str = typer.Option(None,"--action",help="The action name"),
+    version: str = typer.Option(None,"--version",help="The version of action. Use @latest to get the latest"),
+    all: bool = typer.Option(False,"--all",help="Use to get all actions in the database")
+):
+    if(all):
+        result = getAllInFS('RaaC','action')
+        if (type(result) == dict and 'ErrorCode' in result):
+            typer.echo("ERROR: {0}".format(result['ErrorMsg']))
+            raise typer.Exit(code=1)
+        tableData = []
+        for act in result:
+            query = {'filename':'{0}'.format(act)}
+            files = findAbstract('RaaC','action',query=query)
+            for file in files:
+                Data = [file.filename.split(".")[0],file.uniqueName,file.upload_date]
+                tableData.append(Data)
+        typer.echo(tabulate(tableData,headers=['Action Name','Version','Upload Date'],tablefmt="pretty"))
+        raise typer.Exit(code=0)
+
+    if (action != None and version == None):
+
+        query = {'filename':'{0}.yaml'.format(action)}
+        files = findAbstract('RaaC','action',query=query)
+
+        if(len(files) == 0):
+            typer.echo("ERROR: The Action '{0}' doesn't exist on the database.".format(action))
+            raise typer.Exit(code=1)
+
+        tableData = []
+        for file in files:
+                Data = [file.filename.split(".")[0],file.uniqueName,file.upload_date]
+                tableData.append(Data)
+        typer.echo(tabulate(tableData,headers=['Action Name','Version','Upload Date'],tablefmt="pretty"))
+        raise typer.Exit(code=0)
+
+    if (action != None and version != None):
+
+        actionDefinition = extractActionDefinition(action=action,version=version)
+
+        if (type(actionDefinition) == dict and 'ErrorCode' in actionDefinition):
+            typer.echo('ERROR: {0}'.format(actionDefinition['ErrorMsg']))
+            raise typer.Exit(code=1)
+        
+        typer.echo(yaml.dump(actionDefinition))
+
+@raac.command()
+def function(
+    function: str = typer.Option(None,"--function",help="The function name"),
+    version: str = typer.Option(None,"--version",help="The version of function. Use @latest to get the latest"),
+    all: bool = typer.Option(False,"--all",help="Use to get all functions in the database")
+):
+
+    if(all):
+        result = getAllInFS('RaaC','function')
+        if (type(result) == dict and 'ErrorCode' in result):
+            typer.echo("ERROR: {0}".format(result['ErrorMsg']))
+            raise typer.Exit(code=1)
+        tableData = []
+        for func in result:
+            query = {'filename':'{0}'.format(func)}
+            files = findAbstract('RaaC','function',query=query)
+            for file in files:
+                Data = [file.filename.split(".")[0],file.uniqueName,file.upload_date]
+                tableData.append(Data)
+        typer.echo(tabulate(tableData,headers=['Function Name','Version','Upload Date'],tablefmt="pretty"))
+        raise typer.Exit(code=0)
+
+    if (function != None and version == None):
+
+        query = {'filename':'{0}.yaml'.format(function)}
+        files = findAbstract('RaaC','function',query=query)
+
+        if(len(files) == 0):
+            typer.echo("ERROR: The Function '{0}' doesn't exist on the database.".format(function))
+            raise typer.Exit(code=1)
+
+        tableData = []
+        for file in files:
+                Data = [file.filename.split(".")[0],file.uniqueName,file.upload_date]
+                tableData.append(Data)
+        typer.echo(tabulate(tableData,headers=['Function Name','Version','Upload Date'],tablefmt="pretty"))
+        raise typer.Exit(code=0)
+
+    if (function != None and version != None):
+
+        functionDefinition = extractFunctionDefinition(function=function,version=version)
+
+        if (type(functionDefinition) == dict and 'ErrorCode' in functionDefinition):
+            typer.echo('ERROR: {0}'.format(functionDefinition['ErrorMsg']))
+            raise typer.Exit(code=1)
+        
+        typer.echo(yaml.dump(functionDefinition))
 
 
 

@@ -1,10 +1,23 @@
 from re import finditer
+import re
 from warnings import catch_warnings
 
 
 from wgeasywall.utils.mongo.core.db import get_db
 import gridfs
 from pathlib import Path
+
+def getAllInFS(db,fs):
+    database = get_db(db)
+    if(type(database) == dict and 'ErrorCode' in database):
+        return database
+    try:
+        fileSystem = gridfs.GridFS(database,collection=fs)
+        result = fileSystem.list()
+    except gridfs.errors.GridFSError as e:
+        return {"ErrorCode":"601","ErrorMsg":"GridFS Download: {0}.".format(e)}
+
+    return result
 
 def delete(db,fs,fileID):
 

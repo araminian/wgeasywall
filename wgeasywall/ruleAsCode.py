@@ -6,6 +6,7 @@ from wgeasywall.utils.mongo.gridfsmongo import upload, findAbstract,delete
 from coolname import generate_slug
 from wgeasywall.utils.general.configParser import get_configuration
 from typing import Optional
+from wgeasywall.utils.ruleAsCode.generate import createRules
 
 app = typer.Typer()
 
@@ -104,7 +105,7 @@ def import_action(
         if(force):
             doOverwrite = True
         else:
-            confirmOverwrite = typer.confirm("The function '{0}' with the version '{1}' exists. do you want to overwrite it?".format(functionName,version))
+            confirmOverwrite = typer.confirm("The function '{0}' with the version '{1}' exists. do you want to overwrite it?".format(actionName,version))
         
         if (confirmOverwrite):
             doOverwrite = True
@@ -124,4 +125,22 @@ def import_action(
     remove(funcTempPath)
     typer.echo("The provided action definition '{0}' with the version '{1}' is added to the database.".format(actionName,version))
 
+@app.command()
+def generate_rule(
+    rule : str = typer.Option(...,"--rule",help="The rule should be parsed"),
+    actionVersion: str = typer.Option("@latest","--action-version",help="The version of Action which"),
+    functionVersion: str = typer.Option("@latest","--function-version",help="The version of Function")
+):
 
+    ruleEnd = createRules(
+        function=rule,
+        actionVersion=actionVersion,
+        functionVersion=functionVersion
+    )
+
+    if (type(ruleEnd) == dict):
+        typer.echo("ERROR: {0}".format(ruleEnd['ErrorMsg']))
+        raise typer.Exit(code=1)
+    
+    for rule in ruleEnd:
+        typer.echo(' '.join(rule))

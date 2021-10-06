@@ -34,3 +34,7 @@ python3 main.py network generate-hosts-file --network WGNet1
 
 # Add function to the database
 python3 main.py RaaC import-function --function-file func-conntrack2.yaml --version beta
+
+
+python3 main.py view RaaC function --function conntrack --version @latest
+python3 main.py RaaC generate-rule --rule 'multiport(dports=22,80,442:sports=22,80,443)->LOG(logLevel=4:logPrefix="TEST")'
