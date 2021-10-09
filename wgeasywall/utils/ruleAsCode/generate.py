@@ -1,5 +1,6 @@
 from wgeasywall.utils.ruleAsCode.action import generateAction, extractActionDefinition
 from wgeasywall.utils.ruleAsCode.function import generateRule, extractFunctionDefinition
+import subprocess
 
 def getActionFunctionName(name):
 
@@ -49,3 +50,14 @@ def generate(function,actionVersion,functionVersion):
 
     ruleEnd = functionPart + actionPart
     return ruleEnd
+
+def migrateToNFT(rule,tableChain='FORWARD',method='-A'):
+
+    finalRule = tableChain + " " + rule
+    command = 'iptables-translate {0} {1}'.format(method,finalRule)
+    nftRule = subprocess.run(command,stdout=subprocess.PIPE,text=True,shell=True)
+
+    if(nftRule.returncode != 0 ):
+        return {"ErrorCode":"303","ErrorMsg":"Failed to translate IPTable rule to NFT rule"}
+    
+    return nftRule.stdout

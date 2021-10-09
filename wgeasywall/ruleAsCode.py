@@ -6,7 +6,7 @@ from wgeasywall.utils.mongo.gridfsmongo import upload, findAbstract,delete
 from coolname import generate_slug
 from wgeasywall.utils.general.configParser import get_configuration
 from typing import Optional
-from wgeasywall.utils.ruleAsCode.generate import createRules
+from wgeasywall.utils.ruleAsCode.generate import createRules, migrateToNFT
 
 app = typer.Typer()
 
@@ -126,8 +126,9 @@ def import_action(
 @app.command()
 def generate_rule(
     rule : str = typer.Option(...,"--rule",help="The rule should be parsed"),
-    actionVersion: str = typer.Option("@latest","--action-version",help="The version of Action which"),
-    functionVersion: str = typer.Option("@latest","--function-version",help="The version of Function")
+    actionVersion: str = typer.Option("@latest","--action-version",help="The version of Action"),
+    functionVersion: str = typer.Option("@latest","--function-version",help="The version of Function"),
+    nft: Optional[bool] = typer.Option(False,"--nft",help="Generate NFT syntax")
 ):
 
     ruleEnd = createRules(
@@ -141,4 +142,11 @@ def generate_rule(
         raise typer.Exit(code=1)
     
     for rule in ruleEnd:
-        typer.echo(' '.join(rule))
+        rule2show = ' '.join(rule)
+        if (not nft):
+            typer.echo(rule2show)
+        else:
+            nftRule = migrateToNFT(rule2show)
+            nftRuleComponents = nftRule.split(" ")
+            desiredIndex = nftRuleComponents.index("FORWARD")
+            typer.echo(' '.join(nftRuleComponents[desiredIndex+1:]))
