@@ -13,7 +13,6 @@ app = typer.Typer()
 @app.command()
 def import_function(
     funcFile: Path = typer.Option(...,"--function-file",help="The function definition file"),
-    version: str = typer.Option(...,"--version",help="The function version"),
     force : Optional[bool] = typer.Option(False,"--force",help="Force adding and overwriting function even if the function exists"),
 ):  
 
@@ -29,7 +28,7 @@ def import_function(
         raise typer.Exit(code=1)
 
     functionName = funcDefiDict['Func']['Name']
-
+    version = funcDefiDict['Func']['Version']
 
     query = {'filename':'{0}.yaml'.format(functionName)}
     files = findAbstract('RaaC','function',query=query)
@@ -71,7 +70,6 @@ def import_function(
 @app.command()
 def import_action(
     actionFile: Path = typer.Option(...,"--action-file",help="The action definition file"),
-    version: str = typer.Option(...,"--version",help="The action version"),
     force : Optional[bool] = typer.Option(False,"--force",help="Force adding and overwriting action even if the action exists"),
 ):  
 
@@ -87,7 +85,7 @@ def import_action(
         raise typer.Exit(code=1)
 
     actionName = funcDefiDict['Action']['Name']
-
+    version = funcDefiDict['Action']['Version']
 
     query = {'filename':'{0}.yaml'.format(actionName)}
     files = findAbstract('RaaC','action',query=query)
