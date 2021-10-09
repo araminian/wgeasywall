@@ -1,4 +1,5 @@
 from re import sub
+from sys import argv
 
 import yaml
 from wgeasywall.utils.mongo import table
@@ -333,6 +334,16 @@ def action(
             typer.echo('ERROR: {0}'.format(actionDefinition['ErrorMsg']))
             raise typer.Exit(code=1)
         
+        actionMainBody = actionDefinition['Action']['Body']['Main']
+        actionArguments = actionDefinition['Action']['Body']['Arguments']
+        argumentsList = []
+        for argName,argValue in actionArguments.items():
+            argumentsList.append(argValue['Definition'])
+        typer.echo("Action Syntax:\n")
+        typer.echo('{0} {1}'.format(actionMainBody,' '.join(argumentsList)))
+
+        typer.echo('-'*10)
+        typer.echo("Action Manifest:\n")
         typer.echo(yaml.dump(actionDefinition))
 
 @raac.command()
@@ -380,8 +391,23 @@ def function(
         if (type(functionDefinition) == dict and 'ErrorCode' in functionDefinition):
             typer.echo('ERROR: {0}'.format(functionDefinition['ErrorMsg']))
             raise typer.Exit(code=1)
+
+        typer.echo("Function Syntax:\n")
+        funcMainBody = functionDefinition['Func']['Body']['Main']
+        functArguments = functionDefinition['Func']['Body']['Arguments']
+        argumentsList = []
+        for argName,argValue in functArguments.items():
+            argumentsList.append(argValue['Definition'])
+        typer.echo('{0} {1}'.format(funcMainBody,' '.join(argumentsList)))
         
+        typer.echo('-'*10)
+        typer.echo("Function Manifest:\n")
+
         typer.echo(yaml.dump(functionDefinition))
+
+        
+        
+            
 
 
 
