@@ -46,6 +46,20 @@ def sortGroups(netDict):
     return sortedSub
 
 # TODO : Edge Custom Properties
+def addEdgeCustomProperties(graph):
+
+    notAvailableWord = "NULL"
+
+    # Protocol: TCP,UDP
+    graph.define_custom_property("edge","Protocol","string",notAvailableWord)
+    # Src Port[s]
+    graph.define_custom_property("edge","SrcPorts","string",notAvailableWord)
+    # Dst Port[s]
+    graph.define_custom_property("edge","DstPorts","string",notAvailableWord)
+    # Action[s]
+    graph.define_custom_property("edge","Action","string",notAvailableWord)
+    # RaaC
+    graph.define_custom_property("edge","RaaC","string",notAvailableWord)
 
 def addNodeCustomProperties(graph):
 

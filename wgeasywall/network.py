@@ -379,6 +379,7 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
 
     g = pyyed.Graph()
     addNodeCustomProperties(g)
+    addEdgeCustomProperties(g)
     allGroupObject = generateGroupsObject(g,networkDefiDictNoTouch)
     generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients2addGraph,graphName)
     add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':CIDR})
@@ -1017,6 +1018,7 @@ def update(
     edgeToDrawName,groupsColor = getEdges2Draw(graphFile,networkDefiDictNoTouch,oldNetworkDefiDict)
     g = pyyed.Graph()
     addNodeCustomProperties(g)
+    addEdgeCustomProperties(g)
     clientsControlLevel = getClientBasedControlLevel(networkDefiDictNoTouch)
     allClients =  networkDefiForGraph['WGNet']['Clients']
 
