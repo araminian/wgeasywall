@@ -1,6 +1,15 @@
 import networkx as nx
 from tabulate import PRESERVE_WHITESPACE
 
+# Get nodes in a group
+def getNodesInGroup(Graph,GroupID,Groups):
+    nodesInGroup = []
+    for group,nodes in Groups.items():
+        if (group.find(GroupID) != -1):
+            nodesInGroup = nodesInGroup + nodes
+    return nodesInGroup
+        
+
 # Read GraphML and return networkx graph
 def readGraphML(GraphMLFile):
     G = nx.read_graphml(GraphMLFile)
