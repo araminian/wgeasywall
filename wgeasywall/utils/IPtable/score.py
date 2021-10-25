@@ -23,7 +23,7 @@ def getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Na
         if (srcEdgeID in networkResourceMapID2Name):
             srcPriority = resourcePriority
             srcName = networkResourceMapID2Name[srcEdgeID]
-            srcType = "Node"
+            srcType = "Resource"
 
         if (dstEdgeID in groupsMapID2Name):
             dstPriority = groupPriority
@@ -36,7 +36,7 @@ def getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Na
         if (dstEdgeID in networkResourceMapID2Name):
             dstPriority = resourcePriority
             dstName = networkResourceMapID2Name[dstEdgeID]
-            dstType = "Node"
+            dstType = "Resource"
         
         srcDepth = srcEdgeID.count("::") + 1
         dstDepth = dstEdgeID.count("::") + 1
