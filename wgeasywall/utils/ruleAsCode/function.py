@@ -31,9 +31,10 @@ def catagorizeArgs(args):
     mandatory = {}
 
     for argName,argValue in args.items():
-        if argValue['Optional']:
+        
+        if ('Optional' not in argValue or argValue['Optional']):
             optional [argName] = argValue['Definition']
-        else:
+        elif(not argValue['Optional']):
             mandatory [argName] = argValue['Definition']
     
     return (mandatory,optional)
