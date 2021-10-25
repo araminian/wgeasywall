@@ -51,6 +51,8 @@ def generateAction(action,actionDefinition):
     if ((len(mandatoryArgumentsName) != 0 or len(optionalArgumensName) !=0) and actionArguments == None):
         return {"ErrorCode":"300","ErrorMsg":"The action arguments are defined in the definition but no arguments are definied in the action"}
     
+    if (actionArguments == None):
+        actionArguments = []
     
     actionArgumentsNameList= getActionArgumentsName(actionArguments)
     checkAllMandatoryArgs = ifMandatoryArgsExists(actionArgumentsNameList,mandatoryArgumentsName)

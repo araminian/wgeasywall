@@ -94,6 +94,9 @@ def generateRule(function,functionDefinition):
     if ((len(mandatoryArgumentsName) != 0 or len(optionalArgumensName) !=0) and functionArguments == None):
         return {"ErrorCode":"300","ErrorMsg":" The function arguments are defined in the definition but no arguments are definied in the function."}
 
+    if (functionArguments == None):
+        functionArguments = []
+
     functionArgumentsNameList= getFunctionArgumentsName(functionArguments)
 
     checkAllMandatoryArgs = ifMandatoryArgsExists(functionArgumentsNameList,mandatoryArgumentsName)
