@@ -41,25 +41,26 @@ def generate(
         srcEdgeID = edge[0]
         dstEdgeID = edge[1]
         
-        srcEdgeName = groupsMapID2Name[srcEdgeID]
-        dstEdgeName = groupsMapID2Name[dstEdgeID]
-
+        
         # Check if  the src or dst are group
-        if (srcEdgeName not in createdIPSet  and srcEdgeID in groupsMapID2Name):
-            nodesOfSrcGroup = parser.getNodesInGroup(graph,srcEdgeID,groups)
+        if (srcEdgeID in groupsMapID2Name):
+            srcEdgeName = groupsMapID2Name[srcEdgeID]
+            if (srcEdgeName not in createdIPSet):
+                nodesOfSrcGroup = parser.getNodesInGroup(graph,srcEdgeID,groups)
 
-            IPsInIPSet = []
-            for node in nodesOfSrcGroup:
-                IPsInIPSet.append(str(graph.nodes[node]['IPAddress']))
-            createdIPSet[srcEdgeName] = IPsInIPSet
-
-        if (dstEdgeName not in createdIPSet and dstEdgeID in groupsMapID2Name):
-            nodesOfDstGroup = parser.getNodesInGroup(graph,dstEdgeID,groups)
-            
-            IPsInIPSet = []
-            for node in nodesOfDstGroup:
-                IPsInIPSet.append(str(graph.nodes[node]['IPAddress']))
-            createdIPSet[dstEdgeName] = IPsInIPSet
+                IPsInIPSet = []
+                for node in nodesOfSrcGroup:
+                    IPsInIPSet.append(str(graph.nodes[node]['IPAddress']))
+                createdIPSet[srcEdgeName] = IPsInIPSet
+        if (dstEdgeID in groupsMapID2Name):
+            dstEdgeName = groupsMapID2Name[dstEdgeID]
+            if (dstEdgeName not in createdIPSet):
+                nodesOfDstGroup = parser.getNodesInGroup(graph,dstEdgeID,groups)
+                
+                IPsInIPSet = []
+                for node in nodesOfDstGroup:
+                    IPsInIPSet.append(str(graph.nodes[node]['IPAddress']))
+                createdIPSet[dstEdgeName] = IPsInIPSet
 
     generateIPSetScript(createdIPSet)     
     

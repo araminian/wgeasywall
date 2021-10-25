@@ -25,8 +25,10 @@ echo "-----------------------------"
 '''.format(arrayDeleteVariable))
 
     for Group,IPs in IPSetDict.items():
-
+        
+        Group = Group.replace("::","-")
         arrayName = "{0}_{1}".format(Group,"IPs")
+        arrayName = arrayName.replace("-","_")
         arrayVariable = "${{{0}{1}}}".format(arrayName,"[@]")
 
         IPsBashArray = "{0}=({1})".format(arrayName,' '.join(IPs))
