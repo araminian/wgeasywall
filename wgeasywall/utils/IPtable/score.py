@@ -10,26 +10,33 @@ def getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Na
 
         srcEdgeID = edge[0]
         dstEdgeID = edge[1]
-
+        srcType = ""
+        dstType = ""
         if (srcEdgeID in groupsMapID2Name):
             srcPriority = groupPriority
             srcName = groupsMapID2Name[srcEdgeID]
+            srcType = "Group"
         if (srcEdgeID in clientsMapID2Name):
             srcPriority = nodePriority
             srcName = clientsMapID2Name[srcEdgeID]
+            srcType = "Node"
         if (srcEdgeID in networkResourceMapID2Name):
             srcPriority = resourcePriority
             srcName = networkResourceMapID2Name[srcEdgeID]
-        
+            srcType = "Node"
+
         if (dstEdgeID in groupsMapID2Name):
             dstPriority = groupPriority
             dstName = groupsMapID2Name[dstEdgeID]
+            dstType = "Group"
         if (dstEdgeID in clientsMapID2Name):
             dstPriority = nodePriority
             dstName = clientsMapID2Name[dstEdgeID]
+            dstType = "Node"
         if (dstEdgeID in networkResourceMapID2Name):
             dstPriority = resourcePriority
             dstName = networkResourceMapID2Name[dstEdgeID]
+            dstType = "Node"
         
         srcDepth = srcEdgeID.count("::") + 1
         dstDepth = dstEdgeID.count("::") + 1
@@ -47,8 +54,8 @@ def getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Na
         # print("dstDep  ",dstDepth)
         # print("Score ", score )
         # print("--------------------")
-        edgeScoresID.append((srcEdgeID,dstEdgeID,score))
-        edgeScoresName.append((srcName,dstName,score))
+        edgeScoresID.append((srcEdgeID,dstEdgeID,score,srcType,dstType))
+        edgeScoresName.append((srcName,dstName,score,srcType,dstType))
         
         edgeScoresName.sort(key=lambda tup: tup[2],reverse=True)
         edgeScoresID.sort(key=lambda tup: tup[2],reverse=True)
