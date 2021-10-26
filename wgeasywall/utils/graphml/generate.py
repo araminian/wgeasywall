@@ -48,7 +48,7 @@ def sortGroups(netDict):
 # TODO : Edge Custom Properties
 def addEdgeCustomProperties(graph):
 
-    notAvailableWord = "NULL"
+    notAvailableWord = ""
 
     # Protocol: TCP,UDP
     graph.define_custom_property("edge","Protocol","string",notAvailableWord)
