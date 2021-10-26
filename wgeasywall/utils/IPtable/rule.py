@@ -83,7 +83,7 @@ def generateFunctionSyntax(graph,edgeID,edgeName):
         functionArguments.append("dstPorts={0}".format(dstPorts))
     
     # Comment
-    comment= "WGEasywall generated rule for edge from {0} to {1}".format(srcEdgeName,dstEdgeName)
+    comment= "WGEasywall generated rule for edge from {0} to {1}".format(srcEdgeName.replace("::","-"),dstEdgeName.replace("::","-"))
     functionArguments.append("comment='{0}'".format(comment))
     return functionArguments
 
