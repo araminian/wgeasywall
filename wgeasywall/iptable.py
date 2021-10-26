@@ -1,10 +1,13 @@
+from os import error
 from networkx.readwrite.edgelist import parse_edgelist
 import typer
 from pathlib import Path
 import networkx as nx
 import wgeasywall.utils.graphml.parser as parser
 from wgeasywall.utils.IPtable.ipset import generateIPSetScript
-
+from wgeasywall.utils.IPtable.score import getScore
+from wgeasywall.utils.IPtable.rule import generateActionSyntax, generateFunctionSyntax, generateRaaC
+from wgeasywall.utils.ruleAsCode.generate import createRules, migrateToNFT
 
 app = typer.Typer()
 
@@ -15,7 +18,7 @@ def generate(
     if not graphFile.is_file():
         typer.echo("ERROR: GraphML file can't be found!",err=True)
         raise typer.Exit(code=1)
-
+    nft = False
     # Parse graph
     graph = nx.read_graphml(graphFile)
     groups = parser.findGroup(graph)
@@ -32,8 +35,6 @@ def generate(
     groupsMapID2Name = dict((v,k) for k,v in groupsMapName2ID.items())
     networkResourceMapID2Name = dict((v,k) for k,v in networkResourceMapName2ID.items())
 
-    test = parser.getNodesInGroup(graph,'n4::n1',groups)
-    
     # Create IPSet
     createdIPSet = {}
     for edge in allEdges:
@@ -64,5 +65,55 @@ def generate(
 
     generateIPSetScript(createdIPSet)     
     
+    edgeScoreID , edgeScoreName = getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Name)
 
+    for edge in edgeScoreID:
+        index = edgeScoreID.index(edge)
+        edgeN = edgeScoreName[index]
+        functionArgument = generateFunctionSyntax(graph,edge,edgeN)
+        #print(functionArgument)
+        actionList = generateActionSyntax(graph,edge,edgeN)
+        #print(actionList)
+        
 
+        errorFlag = False
+        if (type(actionList) == dict and 'ErrorCode' in actionList):
+            errorFlag = True
+            typer.echo("ERROR: {0}".format(actionList['ErrorMsg']))
+        if (type(functionArgument) == dict and 'ErrorCode' in functionArgument):
+            typer.echo("ERROR: {0}".format(functionArgument['ErrorMsg']))
+            errorFlag = True
+
+        if (errorFlag):
+            continue
+
+        RaaCList = generateRaaC(actionList,functionArgument)
+        #print(RaaCList[0])
+        
+        IPtableRules = []
+        for generatedRule in RaaCList:
+
+            ruleEnd = createRules(
+            function=generatedRule,
+            actionVersion='@latest',
+            functionVersion='@latest'
+            )
+
+            if (type(ruleEnd) == dict):
+                IPtableRules.append((generatedRule,ruleEnd['ErrorMsg']))
+    
+            for rule in ruleEnd:
+                rule2show = ' '.join(rule)
+                if (not nft):
+                    IPtableRules.append((generatedRule,rule2show))
+                else:
+                    nftRule = migrateToNFT(rule2show)
+                    nftRuleComponents = nftRule.split(" ")
+                    desiredIndex = nftRuleComponents.index("FORWARD")
+                    IPtableRules.append((generatedRule,' '.join(nftRuleComponents[desiredIndex+1:])))
+        
+        for iRule in IPtableRules:
+            print(iRule[0])
+            print()
+            print(iRule[1])
+            print("-------------------")
