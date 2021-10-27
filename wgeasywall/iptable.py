@@ -1,4 +1,5 @@
 from os import error
+from sys import argv
 from networkx.readwrite.edgelist import parse_edgelist
 import typer
 from pathlib import Path
@@ -66,14 +67,64 @@ def generate(
     generateIPSetScript(createdIPSet)     
     
     edgeScoreID , edgeScoreName = getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Name)
-
+    IPtableRules = []
     for edge in edgeScoreID:
         index = edgeScoreID.index(edge)
         edgeN = edgeScoreName[index]
+        
+        # Get Attributes of a edge to determine use normal way or special RaaC
+        srcEdgeID = edge[0]
+        dstEdgeID = edge[1]
+        srcType = edge[3]
+        dstType = edge[4]
+        edgeAttributes = graph.get_edge_data(srcEdgeID,dstEdgeID)
+        # Special way 
+        if ('RaaC' in edgeAttributes):
+            specialRaaCs = edgeAttributes['RaaC'].split(',')
+            argumentsToInject = {}
+            if(srcType == 'Group'):
+                srcSetName = srcEdgeName.replace("::","-")
+                argumentsToInject['srcSet'] = "WGEasywall-{0}".format(srcSetName)
+            elif(srcType=='Node'):
+                argumentsToInject['srcIP'] = graph.nodes[srcEdgeID]['IPAddress']
+            # TODO Type Network Resource
+
+            if (dstType == 'Group'):
+                dstSetName = dstEdgeName.replace("::","-")
+                argumentsToInject['dstSet'] = "WGEasywall-{0}".format(dstSetName)
+            elif(dstType == 'Node'):
+                argumentsToInject['dstIP'] = graph.nodes[dstEdgeID]['IPAddress']
+
+            comment= "WGEasywall generated rule for edge from {0} to {1}".format(srcEdgeName.replace("::","-"),dstEdgeName.replace("::","-"))
+            argumentsToInject['comment'] = "'{0}'".format(comment)
+
+            for sRaaC in specialRaaCs:
+
+                ruleEnd = createRules(
+            function=sRaaC,
+            actionVersion='@latest',
+            functionVersion='@latest',
+            injectArgumets=argumentsToInject
+            )
+
+                if (type(ruleEnd) == dict):
+                    IPtableRules.append((sRaaC,ruleEnd['ErrorMsg']))
+                
+                for rule in ruleEnd:
+                    rule2show = ' '.join(rule)
+                    if (not nft):
+                        IPtableRules.append((sRaaC,rule2show))
+                    else:
+                        nftRule = migrateToNFT(rule2show)
+                        nftRuleComponents = nftRule.split(" ")
+                        desiredIndex = nftRuleComponents.index("FORWARD")
+                        IPtableRules.append((sRaaC,' '.join(nftRuleComponents[desiredIndex+1:])))
+            continue
+        
+        # Normal Way
         functionArgument = generateFunctionSyntax(graph,edge,edgeN)
-        #print(functionArgument)
+        
         actionList = generateActionSyntax(graph,edge,edgeN)
-        #print(actionList)
         
 
         errorFlag = False
@@ -90,7 +141,7 @@ def generate(
         RaaCList = generateRaaC(actionList,functionArgument)
         #print(RaaCList[0])
         
-        IPtableRules = []
+        
         for generatedRule in RaaCList:
 
             ruleEnd = createRules(
@@ -112,8 +163,8 @@ def generate(
                     desiredIndex = nftRuleComponents.index("FORWARD")
                     IPtableRules.append((generatedRule,' '.join(nftRuleComponents[desiredIndex+1:])))
         
-        for iRule in IPtableRules:
-            print(iRule[0])
-            print()
-            print(iRule[1])
-            print("-------------------")
+    for iRule in IPtableRules:
+        print(iRule[0])
+        print()
+        print(iRule[1])
+        print("-------------------")
