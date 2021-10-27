@@ -150,3 +150,69 @@ def generate_rule(
             nftRuleComponents = nftRule.split(" ")
             desiredIndex = nftRuleComponents.index("FORWARD")
             typer.echo(' '.join(nftRuleComponents[desiredIndex+1:]))
+
+@app.command()
+def delete_function(
+    function: str = typer.Option(None,"--function",help="The function name"),
+    version: str = typer.Option(None,"--version",help="The version of function. Use @latest to get the latest")
+):
+
+    query = {'filename':'{0}.yaml'.format(function)}
+    files = findAbstract('RaaC','function',query=query)
+
+    if(len(files) == 0):
+        typer.echo("ERROR: The function '{0}' doesn't exist on the database.".format(function))
+        raise typer.Exit(code=1)
+    
+    if (version == '@latest'):
+        deleteResult = delete('RaaC','function',files[-1]._id)
+        if(type(deleteResult) == dict and 'ErrorCode' in deleteResult):
+            typer.echo("ERROR: Function can't be deleted : {0}".format(deleteResult['ErrorMsg']))
+            raise typer.Exit(code=1)
+        typer.echo("The latest version of function '{0}' is deleted".format(function))
+        raise typer.Exit(code=0)
+
+    for file in files:
+        if(version != None and file.uniqueName != version):
+            continue
+        deleteResult = delete('RaaC','function',file._id)
+        if(type(deleteResult) == dict and 'ErrorCode' in deleteResult):
+            typer.echo("ERROR: Function can't be deleted : {0}".format(deleteResult['ErrorMsg']))
+            raise typer.Exit(code=1)
+        typer.echo("The version '{1}' of function '{0}' is deleted.".format(function,file.uniqueName))
+        raise typer.Exit(code=0)
+    typer.echo("ERROR: The '{0}' version of function '{1}' doesn't exist to be deleted".format(version,function))
+    raise typer.Exit(code=1)
+
+@app.command()
+def delete_action(
+    action: str = typer.Option(None,"--action",help="The action name"),
+    version: str = typer.Option(None,"--version",help="The version of action. Use @latest to get the latest")
+):
+
+    query = {'filename':'{0}.yaml'.format(action)}
+    files = findAbstract('RaaC','action',query=query)
+
+    if(len(files) == 0):
+        typer.echo("ERROR: The action '{0}' doesn't exist on the database.".format(action))
+        raise typer.Exit(code=1)
+    
+    if (version == '@latest'):
+        deleteResult = delete('RaaC','action',files[-1]._id)
+        if(type(deleteResult) == dict and 'ErrorCode' in deleteResult):
+            typer.echo("ERROR: Action can't be deleted : {0}".format(deleteResult['ErrorMsg']))
+            raise typer.Exit(code=1)
+        typer.echo("The latest version of action '{0}' is deleted".format(action))
+        raise typer.Exit(code=0)
+
+    for file in files:
+        if(version != None and file.uniqueName != version):
+            continue
+        deleteResult = delete('RaaC','action',file._id)
+        if(type(deleteResult) == dict and 'ErrorCode' in deleteResult):
+            typer.echo("ERROR: Action can't be deleted : {0}".format(deleteResult['ErrorMsg']))
+            raise typer.Exit(code=1)
+        typer.echo("The version '{1}' of action '{0}' is deleted.".format(action,file.uniqueName))
+        raise typer.Exit(code=0)
+    typer.echo("ERROR: The '{0}' version of action '{1}' doesn't exist to be deleted".format(version,action))
+    raise typer.Exit(code=1)
