@@ -1,12 +1,27 @@
 from wgeasywall.utils.ruleAsCode.action import generateAction, extractActionDefinition
-from wgeasywall.utils.ruleAsCode.function import generateRule, extractFunctionDefinition
+from wgeasywall.utils.ruleAsCode.function import generateRule, extractFunctionDefinition, getFunctionBody
 import subprocess
+
+def Inject(functionDefiDict,function,argument,argumentValue):
+
+    functionDefiArgument = functionDefiDict['Func']['Body']['Arguments']
+
+    if ( argument in functionDefiArgument):
+
+        functionBody=getFunctionBody(function)
+        functionName = getActionFunctionName(function)
+        newFunctionBody= "{0}:{1}={2}".format(functionBody,argument,argumentValue)
+        
+        newFunction = "{0}({1})".format(functionName,newFunctionBody)
+        return newFunction
+    else:
+        return function
 
 def getActionFunctionName(name):
 
     return name.split('(')[0]
 
-def createRules (function,actionVersion,functionVersion):
+def createRules (function,actionVersion,functionVersion,injectArgumets=None):
 
     finalRules = []
 
@@ -16,7 +31,7 @@ def createRules (function,actionVersion,functionVersion):
     rulesList = rules.split("::")
     for rule in rulesList:
         func = "{0}::{1}".format(rule,action)
-        ruleEnd = generate(func,actionVersion,functionVersion)
+        ruleEnd = generate(func,actionVersion,functionVersion,injectArgumets=injectArgumets)
         if(type(ruleEnd) == dict):
             return ruleEnd
         finalRules.append(ruleEnd)
@@ -24,9 +39,9 @@ def createRules (function,actionVersion,functionVersion):
     return finalRules
 
 
-def generate(function,actionVersion,functionVersion):
+def generate(RaaC,actionVersion,functionVersion,injectArgumets=None):
 
-    rulePart = function.split('::')
+    rulePart = RaaC.split('::')
     function , action = rulePart[0] , rulePart[1]
 
     actionName = getActionFunctionName(action)
@@ -39,6 +54,11 @@ def generate(function,actionVersion,functionVersion):
         return actionDefinition
     if(type(functionDefinition) == dict and 'ErrorCode' in functionDefinition):
         return functionDefinition
+
+    # Inject some arguments into the function
+    if (injectArgumets != None):
+        for argument,value in injectArgumets.items():
+            function = Inject(functionDefinition,function,argument,value)
 
     actionPart = generateAction(action,actionDefinition)
     functionPart = generateRule(function,functionDefinition)
