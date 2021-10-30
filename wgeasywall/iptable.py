@@ -7,14 +7,17 @@ import networkx as nx
 import wgeasywall.utils.graphml.parser as parser
 from wgeasywall.utils.IPtable.ipset import generateIPSetScript
 from wgeasywall.utils.IPtable.score import getScore
-from wgeasywall.utils.IPtable.rule import generateActionSyntax, generateFunctionSyntax, generateRaaC
+from wgeasywall.utils.IPtable.rule import dnsLookUP, generateActionSyntax, generateFunctionSyntax, generateRaaC
 from wgeasywall.utils.ruleAsCode.generate import createRules, migrateToNFT
-
+from wgeasywall.utils.IPtable.iptable import generateIPTableScript
 app = typer.Typer()
 
 @app.command()
 def generate(
-    graphFile: Path = typer.Option(...,"--graph-file",help="The GraphML file")
+    graphFile: Path = typer.Option(...,"--graph-file",help="The GraphML file"),
+    AppendMode: bool = typer.Option(False,"--append-mode",help="IF 'Enabled' the WGEasywall chain will be inserted at the first of FORWARD chain. IF not it will be added at the end"),
+    ReturnMode: bool = typer.Option(False,"--return-mode",help="IF 'Enabled' if there is no rule match for packets, the packets don't back to FORWARD chain and will be matched with 'default-chain-policy'"),
+    DefaultChainPolicy: str = typer.Option("DROP","--default-chain-policy",help="The default policy for WGEasywall chain which be useful if the 'Return mode' is disabled")
 ):
     if not graphFile.is_file():
         typer.echo("ERROR: GraphML file can't be found!",err=True)
@@ -71,7 +74,8 @@ def generate(
     for edge in edgeScoreID:
         index = edgeScoreID.index(edge)
         edgeN = edgeScoreName[index]
-        
+        srcEdgeName = edgeN[0]
+        dstEdgeName = edgeN[1]
         # Get Attributes of a edge to determine use normal way or special RaaC
         srcEdgeID = edge[0]
         dstEdgeID = edge[1]
@@ -87,13 +91,28 @@ def generate(
                 argumentsToInject['srcSet'] = "WGEasywall-{0}".format(srcSetName)
             elif(srcType=='Node'):
                 argumentsToInject['srcIP'] = graph.nodes[srcEdgeID]['IPAddress']
-            # TODO Type Network Resource
+            elif(srcType=='Resource'):
+                resource = graph.nodes[srcEdgeID]
+                if ('Hostname' in resource and resource['Hostname'] != 'NULL'):
+                    lookedUPIP = dnsLookUP(resource['Hostname'])
+                    IPforRule = ','.join(lookedUPIP)
+                    argumentsToInject['srcIP']=IPforRule
+                elif('IPAddress' in resource):
+                    argumentsToInject['srcIP']=resource['IPAddress']
 
             if (dstType == 'Group'):
                 dstSetName = dstEdgeName.replace("::","-")
                 argumentsToInject['dstSet'] = "WGEasywall-{0}".format(dstSetName)
             elif(dstType == 'Node'):
                 argumentsToInject['dstIP'] = graph.nodes[dstEdgeID]['IPAddress']
+            elif(dstType=='Resource'):
+                resource = graph.nodes[dstEdgeID]
+                if ('Hostname' in resource and resource['Hostname'] != 'NULL'):
+                    lookedUPIP = dnsLookUP(resource['Hostname'])
+                    IPforRule = ','.join(lookedUPIP)
+                    argumentsToInject['dstIP']=IPforRule
+                elif('IPAddress' in resource):
+                    argumentsToInject['dstIP']=resource['IPAddress']
 
             comment= "WGEasywall generated rule for edge from {0} to {1}".format(srcEdgeName.replace("::","-"),dstEdgeName.replace("::","-"))
             argumentsToInject['comment'] = "'{0}'".format(comment)
@@ -108,7 +127,8 @@ def generate(
             )
 
                 if (type(ruleEnd) == dict):
-                    IPtableRules.append((sRaaC,ruleEnd['ErrorMsg']))
+                    typer.echo("The following RaaC defnition can't be translated to IPTable rules:\n{0}\nReason: {1}".format(sRaaC,ruleEnd['ErrorMsg']))
+                    continue
                 
                 for rule in ruleEnd:
                     rule2show = ' '.join(rule)
@@ -130,18 +150,16 @@ def generate(
         errorFlag = False
         if (type(actionList) == dict and 'ErrorCode' in actionList):
             errorFlag = True
-            typer.echo("ERROR: {0}".format(actionList['ErrorMsg']))
+            typer.echo("ERROR: Edge '{0}' to '{1}'. Reason: '{2}'\n".format(srcEdgeName,dstEdgeName,actionList['ErrorMsg']))
         if (type(functionArgument) == dict and 'ErrorCode' in functionArgument):
-            typer.echo("ERROR: {0}".format(functionArgument['ErrorMsg']))
+            typer.echo("ERROR: Edge '{0}' to '{1}'. Reason: '{2}'\n".format(srcEdgeName,dstEdgeName,functionArgument['ErrorMsg']))
             errorFlag = True
 
         if (errorFlag):
             continue
 
         RaaCList = generateRaaC(actionList,functionArgument)
-        #print(RaaCList[0])
-        
-        
+                
         for generatedRule in RaaCList:
 
             ruleEnd = createRules(
@@ -168,3 +186,4 @@ def generate(
         print()
         print(iRule[1])
         print("-------------------")
+    generateIPTableScript(IPtableRules,AppendMode=AppendMode,ReturnMode=ReturnMode,DefaultAction=DefaultChainPolicy)
