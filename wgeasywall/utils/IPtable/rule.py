@@ -1,3 +1,8 @@
+def dnsLookUP(domain):
+    import socket
+    result = socket.gethostbyname_ex(domain)
+    return (result[2])
+    
 def generateRaaC(actionList,functionArgs,functionName='General'):
 
     functionArgumentsConcat = ':'.join(functionArgs)
@@ -57,21 +62,37 @@ def generateFunctionSyntax(graph,edgeID,edgeName):
         functionArguments.append("protocol={0}".format(edgeAttributes['Protocol'].lower()))
 
     # IPs or Set
-
+    
     ## Src
     if (srcType=='Group'):
         srcSetName = srcEdgeName.replace("::","-")
         functionArguments.append("srcSet=WGEasywall-{0}".format(srcSetName))
     elif(srcType=='Node'):
         functionArguments.append("srcIP={0}".format(graph.nodes[srcEdgeID]['IPAddress']))
-    # TODO: Network Resource Type
+    elif(srcType=='Resource'):
+        resource = graph.nodes[srcEdgeID]
+        if ('Hostname' in resource and resource['Hostname'] != 'NULL'):
+            lookedUPIP = dnsLookUP(resource['Hostname'])
+            IPforRule = ','.join(lookedUPIP)
+            functionArguments.append("srcIP={0}".format(IPforRule))
+        elif('IPAddress' in resource):
+            functionArguments.append("srcIP={0}".format(resource['IPAddress']))
 
+    # TODO: Network Resource Type
     ## Dst
     if (dstType=='Group'):
         dstSetName = dstEdgeName.replace("::","-")
         functionArguments.append("dstSet=WGEasywall-{0}".format(dstSetName))
     elif(dstType=='Node'):
         functionArguments.append("dstIP={0}".format(graph.nodes[dstEdgeID]['IPAddress']))
+    elif(dstType=='Resource'):
+        resource = graph.nodes[dstEdgeID]
+        if ('Hostname' in resource and resource['Hostname'] != 'NULL'):
+            lookedUPIP = dnsLookUP(resource['Hostname'])
+            IPforRule = ','.join(lookedUPIP)
+            functionArguments.append("dstIP={0}".format(IPforRule))
+        elif('IPAddress' in resource):
+            functionArguments.append("dstIP={0}".format(resource['IPAddress']))
 
     # Ports
     ## Src
@@ -86,6 +107,3 @@ def generateFunctionSyntax(graph,edgeID,edgeName):
     comment= "WGEasywall generated rule for edge from {0} to {1}".format(srcEdgeName.replace("::","-"),dstEdgeName.replace("::","-"))
     functionArguments.append("comment='{0}'".format(comment))
     return functionArguments
-
-
-    
