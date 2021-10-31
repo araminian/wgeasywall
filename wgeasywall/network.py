@@ -32,7 +32,7 @@ app = typer.Typer()
 from python_hosts import Hosts, HostsEntry
 
 
-def linter(networkDefiDict):
+def linter(networkDefiDict,WGMode):
 
     LinterError = False
     CIDR = networkDefiDict['WGNet']['Subnet']
@@ -159,7 +159,7 @@ def linter(networkDefiDict):
     for client,IP in clientIPs.items(): 
         if not isIPinCIDR(CIDR,IP):
             notInNetworkIPs[client] = IP
-    if len(notInNetworkIPs) > 0:
+    if len(notInNetworkIPs) > 0 and WGMode:
         typer.echo("ERROR: These clients have IP addresses which are not in range of network {0}".format(CIDR))
         for client,IP in notInNetworkIPs.items():
             typer.echo("{0} with IP of {1}".format(client,IP))
@@ -180,7 +180,7 @@ def linter(networkDefiDict):
     for client,IP in clientIPs.items(): 
         if not isIPinRange(ReservedRangeList,IP):
             unRengedIPs[client] = IP
-    if len(unRengedIPs) > 0:
+    if len(unRengedIPs) > 0 and WGMode:
         typer.echo("ERROR: These clients have IP addresses which are not in range of reserved IPs {0}".format(networkDefiDict['WGNet']['ReservedRange']))
         for client,IP in unRengedIPs.items():
             typer.echo("{0} with IP of {1}".format(client,IP))
@@ -192,7 +192,7 @@ def linter(networkDefiDict):
     for client,IP in clientIPs.items():
         if IP == serverInfo['IPAddress']:
             clientIPLikeServer[client] = IP
-    if len(clientIPLikeServer) > 0:
+    if len(clientIPLikeServer) and WGMode > 0:
         typer.echo("ERROR: These clients have IP addresses eqaul to server IP address")
         for client,IP in clientIPLikeServer.items():
             typer.echo("{0} with IP of {1}".format(client,IP))
@@ -223,7 +223,8 @@ def linter(networkDefiDict):
 def initilize(
 networkFile: Path = typer.Option(...,"--network-file",help="The network definition file"),
 keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
-graphName: str = typer.Option(None,"--graph-file-name",help="The generated GraphML file name. Default: Network Name")
+graphName: str = typer.Option(None,"--graph-file-name",help="The generated GraphML file name. Default: Network Name"),
+WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mode. Default is WG mode.")
 ):
 
     """
@@ -242,18 +243,20 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
         raise typer.Exit(code=1)
 
     networkName = networkDefiDict['WGNet']['Name']
-    findNetworkQuery = {"_id": get_sha2(networkName)}
-    queryNetwork = query_abstract(database_name='Networks',table_name='init',query=findNetworkQuery)
-    if (type(queryNetwork) == dict and 'ErrorCode' in queryNetwork):
-        return queryNetwork
-    
-    networkInit = list(queryNetwork['Enteries'])
-    if ( len(list(networkInit)) > 0 and networkInit[0]['initilized'] ):
-        typer.echo("ERROR: The network {0} was initilized and can't be initilized again.".format(networkName))
-        raise typer.Exit(code=1)
+    if(WGmode):
+        findNetworkQuery = {"_id": get_sha2(networkName)}
+        queryNetwork = query_abstract(database_name='Networks',table_name='init',query=findNetworkQuery)
+        if (type(queryNetwork) == dict and 'ErrorCode' in queryNetwork):
+            typer.echo("ERROR: Can't connect to DB. Error: {0}".format(queryNetwork['ErrorMsg']))
+            raise typer.Exit(code=1)
+        
+        networkInit = list(queryNetwork['Enteries'])
+        if ( len(list(networkInit)) > 0 and networkInit[0]['initilized'] ):
+            typer.echo("ERROR: The network {0} was initilized and can't be initilized again.".format(networkName))
+            raise typer.Exit(code=1)
 
     # Lint
-    LintError = linter(networkDefiDict)
+    LintError = linter(networkDefiDict,WGmode)
     if (LintError):
         typer.echo("Abort!")
         raise typer.Exit(code=1)
@@ -265,24 +268,26 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
 
     networkDefiDictNoTouch = copy.deepcopy(networkDefiDict)
 
-    if (len(clientsControlLevel['Uncontrolled']) > 0 and keyDirectory == None):
-        typer.echo("ERORR: There is more than one uncontrolled client in the network definition, keys directory should be specified!")
-        raise typer.Exit(code=1)
+    # Keys
+    if(WGmode):
+        if (len(clientsControlLevel['Uncontrolled']) > 0 and keyDirectory == None):
+            typer.echo("ERORR: There is more than one uncontrolled client in the network definition, keys directory should be specified!")
+            raise typer.Exit(code=1)
 
-    keysNotSet = False
-    if (len(clientsControlLevel['Uncontrolled']) > 0):
-        for client in clientsControlLevel['Uncontrolled']:
-            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
-            key = getFile(clientKeyPath)
+        keysNotSet = False
+        if (len(clientsControlLevel['Uncontrolled']) > 0):
+            for client in clientsControlLevel['Uncontrolled']:
+                clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+                key = getFile(clientKeyPath)
 
-            if (type(key) == dict):
-                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found in key directory!".format(client['Name']))
-                keysNotSet = True
+                if (type(key) == dict):
+                    typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found in key directory!".format(client['Name']))
+                    keysNotSet = True
 
-    # If key is not found return
-    if (keysNotSet):
-        typer.echo('Initilization Fail!')
-        raise typer.Exit(code=1)
+        # If key is not found return
+        if (keysNotSet):
+            typer.echo('Initilization Fail!')
+            raise typer.Exit(code=1)
 
     # Network Part
     if (graphName == None):
@@ -323,80 +328,91 @@ graphName: str = typer.Option(None,"--graph-file-name",help="The generated Graph
     
 
     # Key Part
+    
     allClients = []
+    if(WGmode):
+        for client in clientsControlLevel['Uncontrolled']:
+            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+            key = getFile(clientKeyPath)
 
-    for client in clientsControlLevel['Uncontrolled']:
-        clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
-        key = getFile(clientKeyPath)
+            if (type(key) == dict):
+                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
+                raise typer.Exit(code=1)
+            client['PublicKey'] = key
+            client['PrivateKey'] = ""
 
-        if (type(key) == dict):
-            typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
-            raise typer.Exit(code=1)
-        client['PublicKey'] = key
-        client['PrivateKey'] = ""
-
-    for client in clientsControlLevel['Controlled']:
-        clientKey = generateEDKeyPairs()
-        client['PublicKey'] = clientKey[1]
-        client['PrivateKey'] = clientKey[0]
+        for client in clientsControlLevel['Controlled']:
+            clientKey = generateEDKeyPairs()
+            client['PublicKey'] = clientKey[1]
+            client['PrivateKey'] = clientKey[0]
 
     allClients =  clientsControlLevel['Controlled'] + clientsControlLevel['Uncontrolled']
     
-    # Server 
-    serverKey = generateEDKeyPairs()
-    serverInfo['_id'] = get_sha2(serverInfo['Name'])
-    serverInfo['PublicKey'] = serverKey[1]
-    serverInfo['PrivateKey'] = serverKey[0]
-    addResult = add_entry_one(database_name=networkName,table_name='server',data=serverInfo)
-    if (type(addResult) == dict and 'ErrorCode' in addResult):
-        typer.echo("ERORR: Can't connect to database and initilize network")
-        raise typer.Exit(code=1)
-    
-    # ADD ALL to DATABASE
-    add_entry_multiple(database_name=networkName,table_name='freeIP',data=freeIPLIST)
-    addResult = add_entry_one(database_name=networkName,table_name='subnet',data=CIDRData)
-    if (type(addResult) == dict and 'ErrorCode' in addResult):
-        typer.echo("ERORR: Can't connect to database and initilize network")
-        raise typer.Exit(code=1)
-    
-    typer.echo("IP-Assigner setup done.")
-
+    # Server
+    if(WGmode):
+        serverKey = generateEDKeyPairs()
+        serverInfo['_id'] = get_sha2(serverInfo['Name'])
+        serverInfo['PublicKey'] = serverKey[1]
+        serverInfo['PrivateKey'] = serverKey[0]
+        addResult = add_entry_one(database_name=networkName,table_name='server',data=serverInfo)
+        if (type(addResult) == dict and 'ErrorCode' in addResult):
+            typer.echo("ERORR: Can't connect to database and initilize network")
+            raise typer.Exit(code=1)
+        
+        # ADD ALL to DATABASE
+        add_entry_multiple(database_name=networkName,table_name='freeIP',data=freeIPLIST)
+        addResult = add_entry_one(database_name=networkName,table_name='subnet',data=CIDRData)
+        if (type(addResult) == dict and 'ErrorCode' in addResult):
+            typer.echo("ERORR: Can't connect to database and initilize network")
+            raise typer.Exit(code=1)
+        
+        typer.echo("IP-Assigner setup done.")
+    defaultIP = '1.2.3.4'
     for client in allClients:
         client['_id'] = get_sha2(client['Name'])
         if(client['IPAddress'] == ""):
-            client['IPAddress'] = requestIP(networkName,client['Name'])
+            if(WGmode):
+                client['IPAddress'] = requestIP(networkName,client['Name'])
+            else:
+                client['IPAddress'] = defaultIP
         else:
-            client['IPAddress'] = requestIP(networkName,client['Name'],IP=client['IPAddress'])
-    
-    add_entry_multiple(database_name=networkName,table_name='clients',data=allClients)
+            if(WGmode):
+                client['IPAddress'] = requestIP(networkName,client['Name'],IP=client['IPAddress'])
+    if(WGmode):
+        add_entry_multiple(database_name=networkName,table_name='clients',data=allClients)
 
     allClients2addGraph = copy.deepcopy(allClients)
 
     for client in allClients2addGraph:
-        client.pop('_id')
-        client.pop('PublicKey')
-        client.pop('PrivateKey')
+        client.pop('_id',None)
+        client.pop('PublicKey',None)
+        client.pop('PrivateKey',None)
 
     g = pyyed.Graph()
     addNodeCustomProperties(g)
     addEdgeCustomProperties(g)
     allGroupObject = generateGroupsObject(g,networkDefiDictNoTouch)
     generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients2addGraph,graphName)
-    add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':CIDR})
+    if(WGmode):
+        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':CIDR})
     exportGraphFile(g,graphName)
 
     # Upload Network File to DataBase
-    networkTempPath = create_temporary_copy(path=networkFile,networkName="{0}.yaml".format(networkName))
-    netdefUniqueName = generate_slug(2)
-    upload(db=networkName,fs='netdef',filePath=networkTempPath,uniqueName=netdefUniqueName)
-    os.remove(networkTempPath)
-    typer.echo("The provided Network definition is added to the database with the unique name of {0}. You can use this name to access the network definition.".format(netdefUniqueName))
+    if(WGmode):
+        networkTempPath = create_temporary_copy(path=networkFile,networkName="{0}.yaml".format(networkName))
+        netdefUniqueName = generate_slug(2)
+        upload(db=networkName,fs='netdef',filePath=networkTempPath,uniqueName=netdefUniqueName)
+        os.remove(networkTempPath)
+        typer.echo("The provided Network definition is added to the database with the unique name of {0}. You can use this name to access the network definition.".format(netdefUniqueName))
     # TODO: Store GraphML to the database ?
-
+    if(not WGmode):
+        typer.echo("The Graphfile '{0}' is generated".format(graphName))
 
 @app.command()
 def update(
     networkFile: Path = typer.Option(...,"--network-file",help="The new network definition file"),
+    oldNetworkFile: Optional[Path] = typer.Option(None,"--old-network-file",help="The old network definition file which will be used in case of WGMode is disabled"),
+    WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mode. Default is WG mode."),
     keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
     graphFile: Path = typer.Option(...,"--graph-file",help="The GraphML file"),
     graphName: str = typer.Option(None,"--graph-file-name",help="The generated GraphML file name. Default: Network Name"),
@@ -406,6 +422,15 @@ def update(
 
     if not networkFile.is_file():
         typer.echo("ERROR: Network Definition file can't be found!",err=True)
+        raise typer.Exit(code=1)
+    if (not WGmode and not oldNetworkFile.is_file()):
+        typer.echo("ERROR: Old Network Definition file can't be found!",err=True)
+        raise typer.Exit(code=1)
+    if (not WGmode and oldNetworkFile==None):
+        typer.echo("ERROR: If WG mode is disabled the old network definition should be specefied!",err=True)
+        raise typer.Exit(code=1)
+    if (not WGmode and graphDryRun):
+        typer.echo("ERROR: Can't use Graph-dry-run when the WG mode is disabled!",err=True)
         raise typer.Exit(code=1)
     
     if not graphFile.is_file():
@@ -424,21 +449,23 @@ def update(
     networkName = networkDefiDict['WGNet']['Name']
     networkNameNoTouch = networkName
 
-    isInitilized = isNetworkInitilized(networkName)
-    if(type(isInitilized) == dict):
-        if(isInitilized['ErrorCode'] == '900'):
-            typer.echo(isInitilized['ErrorMsg'])
-            typer.echo("Can't update the network {0} which is not initialized yet".format(networkName))
-            raise typer.Exit(code=1)
-        else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
-            raise typer.Exit(code=1)
+    if (WGmode):
+        isInitilized = isNetworkInitilized(networkName)
+        if(type(isInitilized) == dict):
+            if(isInitilized['ErrorCode'] == '900'):
+                typer.echo(isInitilized['ErrorMsg'])
+                typer.echo("Can't update the network {0} which is not initialized yet".format(networkName))
+                raise typer.Exit(code=1)
+            else:
+                typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+                raise typer.Exit(code=1)
 
-    # GET OLD Network Definition
-    query = {'filename':'{0}.yaml'.format(networkName)}
-    files = findAbstract(networkName,'netdef',query=query)
-    oldNetworkDefiDict = yaml.safe_load(files[-1].read().decode())
-
+        # GET OLD Network Definition
+        query = {'filename':'{0}.yaml'.format(networkName)}
+        files = findAbstract(networkName,'netdef',query=query)
+        oldNetworkDefiDict = yaml.safe_load(files[-1].read().decode())
+    else:
+        oldNetworkDefiDict = get_configuration(oldNetworkFile)
     # GraphDryRun
     if (graphDryRun):
         networkName = "{0}-dry".format(networkName)
@@ -451,7 +478,7 @@ def update(
     oldServerInfo = oldNetworkDefiDict['WGNet']['Server']
 
     ## Lint
-    LintError = linter(networkDefiDict)
+    LintError = linter(networkDefiDict,WGmode)
     ### server name and hostname
     if (serverInfo['Name'] != oldServerInfo['Name']):
         typer.echo("ERROR: The server's name can't be updated after initialization.")
@@ -559,22 +586,24 @@ def update(
         isClientChange = True
         typer.echo("Client '{0}' will be added to the network with these settings: \n{1}".format(client['ObjectName'],client['ObjectInfo']))
         if(client['ObjectInfo']['UnderControl'] == 'False' and keyDirectory == None):
-            typer.echo("ERROR: Client is not under control which means the key direcotry should be specified.")
-            raise typer.Exit(code=1)
+            if (WGmode):
+                typer.echo("ERROR: Client is not under control which means the key direcotry should be specified.")
+                raise typer.Exit(code=1)
 
     # Exit when the key file is not found
-    keysNotSet = False
-    if (len(clientsAddedNotUnderControl) > 0):
-        for client in clientsAddedNotUnderControl:
-            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
-            key = getFile(clientKeyPath)
+    if (WGmode):
+        keysNotSet = False
+        if (len(clientsAddedNotUnderControl) > 0):
+            for client in clientsAddedNotUnderControl:
+                clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+                key = getFile(clientKeyPath)
 
-            if (type(key) == dict):
-                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client['Name']))
-                keysNotSet = True
-    if (keysNotSet):
-        typer.echo("Update Abort!")
-        raise typer.Exit(code=1)
+                if (type(key) == dict):
+                    typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client['Name']))
+                    keysNotSet = True
+        if (keysNotSet):
+            typer.echo("Update Abort!")
+            raise typer.Exit(code=1)
     
     ### Detect IP,Group,Routes Changed
     clientsIPChanged = []
@@ -644,19 +673,19 @@ def update(
         typer.echo("ERROR: At least one client's control level will be changed to not under control which key direcotry should be specified.")
         raise typer.Exit(code=1)
     
-    # Exit when the key file is not found
-    keysNotSet = False
-    if (len(clientNotUnderControl) > 0):
-        for client in clientNotUnderControl:
-            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
-            key = getFile(clientKeyPath)
+    # # Exit when the key file is not found
+    # keysNotSet = False
+    # if (len(clientNotUnderControl) > 0):
+    #     for client in clientNotUnderControl:
+    #         clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+    #         key = getFile(clientKeyPath)
 
-            if (type(key) == dict):
-                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client['Name']))
-                keysNotSet = True
-    if (keysNotSet):
-        typer.echo("Update Abort!")
-        raise typer.Exit(code=1)
+    #         if (type(key) == dict):
+    #             typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client['Name']))
+    #             keysNotSet = True
+    # if (keysNotSet):
+    #     typer.echo("Update Abort!")
+    #     raise typer.Exit(code=1)
     
     ### Detect Remove IP,Group,Routes
     clientsRemovedIP = []
@@ -723,30 +752,31 @@ def update(
             clientsAddedIP.append(data)
     
     # Check Enough IPs
-    subnetReport = getSubnetReport(networkName)
-    
-    ## Enough Static IPs will be detected from finding duplication in the Network Definition
+    if (WGmode):
+        subnetReport = getSubnetReport(networkName)
+        
+        ## Enough Static IPs will be detected from finding duplication in the Network Definition
 
-    numFreeNonStaticIPs = subnetReport['NumFreeNonStaticIPs']
+        numFreeNonStaticIPs = subnetReport['NumFreeNonStaticIPs']
 
-    numClientWithDynamicIPAdded = 0
-    for client in (clientsAddedUnderControl + clientsAddedNotUnderControl):
-        if ('IPAddress' not in client):
-            numClientWithDynamicIPAdded += 1 
-    
-    numClientWithDynamicIPAdded += len(clientsRemovedIP)
-    
-    numDynamicIPAddedByClientRemoved = 0
-    for client in clientsRemoved:
-        if ('IPAddress' not in client):
-            numDynamicIPAddedByClientRemoved += 1
+        numClientWithDynamicIPAdded = 0
+        for client in (clientsAddedUnderControl + clientsAddedNotUnderControl):
+            if ('IPAddress' not in client):
+                numClientWithDynamicIPAdded += 1 
+        
+        numClientWithDynamicIPAdded += len(clientsRemovedIP)
+        
+        numDynamicIPAddedByClientRemoved = 0
+        for client in clientsRemoved:
+            if ('IPAddress' not in client):
+                numDynamicIPAddedByClientRemoved += 1
 
-    #numFreeStaticIPs = subnetReport['NumFreeStaticIPs']
+        #numFreeStaticIPs = subnetReport['NumFreeStaticIPs']
 
-    if (not isChangeSubnet[0] and numFreeNonStaticIPs+numDynamicIPAddedByClientRemoved-numClientWithDynamicIPAdded < 0):
+        if (not isChangeSubnet[0] and numFreeNonStaticIPs+numDynamicIPAddedByClientRemoved-numClientWithDynamicIPAdded < 0):
 
-        typer.echo("ERROR: There is no enough IPs to assing.")
-        raise typer.Exit(code=1)
+            typer.echo("ERROR: There is no enough IPs to assing.")
+            raise typer.Exit(code=1)
 
      
     # Dry-Run Feature
@@ -763,32 +793,32 @@ def update(
         freeIP['IP'] = str(isChangedServerIP[2])
         freeIP['static'] = 'True'
 
-        addResult = add_entry_one(database_name=networkName,table_name='freeIP',data=freeIP)
-        if (type(addResult) == dict and 'ErrorCode' in addResult):
-            typer.echo("ERROR: Can't connect to database. {0}".format(addResult))
-            raise typer.Exit(code=1)
+        if(WGmode):
+            addResult = add_entry_one(database_name=networkName,table_name='freeIP',data=freeIP)
+            if (type(addResult) == dict and 'ErrorCode' in addResult):
+                typer.echo("ERROR: Can't connect to database. {0}".format(addResult))
+                raise typer.Exit(code=1)
         
-        requestResult = requestIP(networkName,serverInfo['Name'],IP=isChangedServerIP[1])
-        if (type(requestResult) == dict and 'ErrorCode' in requestResult ):
-            typer.echo ("ERROR: Can't request an IP for server. {0}".format(requestResult))
-            raise typer.Exit(code=1)
+            requestResult = requestIP(networkName,serverInfo['Name'],IP=isChangedServerIP[1])
+            if (type(requestResult) == dict and 'ErrorCode' in requestResult ):
+                typer.echo ("ERROR: Can't request an IP for server. {0}".format(requestResult))
+                raise typer.Exit(code=1)
 
-    if (isServerChanged or isChangedServerIP[0]):
-        serverQuery = { "_id": get_sha2(serverInfo['Name']) }
-        serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
-        updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
-        if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
-            typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
-            raise typer.Exit(code=1)
+        if (isServerChanged or isChangedServerIP[0]):
+            serverQuery = { "_id": get_sha2(serverInfo['Name']) }
+            serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
+            updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
+            if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
+                typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
+                raise typer.Exit(code=1)
     
     ## Check if subnet is updated or not
-    if (isChangeSubnet[0]):
+    serverInfo = networkDefiDict['WGNet']['Server']
+    if (isChangeSubnet[0] and WGmode):
 
         ### Update subnet
         newCIDR = isChangeSubnet[1]
         oldCIDR = isChangeSubnet[2]
-
-        serverInfo = networkDefiDict['WGNet']['Server']
 
         additionalIPs = subtractCIDR(newCIDR,oldCIDR)
         
@@ -842,92 +872,105 @@ def update(
 
     ## Client IP Changed
     ### Release IPs
-    for client in clientsIPChanged:
-        returnIP(networkName,clientName=client['Name'])
+    if(WGmode):
+        for client in clientsIPChanged:
+            returnIP(networkName,clientName=client['Name'])
 
-    ### Get IPs
-    for client in clientsIPChanged:
+    if(WGmode):
+        ### Get IPs
+        for client in clientsIPChanged:
 
-        newIP = requestIP(networkName,clientName=client['Name'],IP=client['New'])
-        clientQuery = {"_id": get_sha2(client['Name'])}
-        newValues = { "$set": { "IPAddress": newIP } }
-        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
-    
-    ## Client IP static removed
+            newIP = requestIP(networkName,clientName=client['Name'],IP=client['New'])
+            clientQuery = {"_id": get_sha2(client['Name'])}
+            newValues = { "$set": { "IPAddress": newIP } }
+            update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
     clientIPInjectToNetworkDef = {}
-    for client in clientsRemovedIP:
-
-        returnIP(networkName,clientName=client['Name'])
-
-        newIP = requestIP(networkName,clientName=client['Name'])
-        clientQuery = {"_id": get_sha2(client['Name'])}
-        newValues = { "$set": { "IPAddress": newIP } }
-        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
-        client['New'] = newIP
-        clientIPInjectToNetworkDef[client['Name']] = newIP #These IP should be injected to the network definition
-
-    ## Client IP static Added
-    for client in clientsAddedIP:
+    if(WGmode):
+        ## Client IP static removed
         
-        returnIP(networkName,clientName=client['Name'])
+        for client in clientsRemovedIP:
 
-        newIP = requestIP(networkName,clientName=client['Name'],IP=client['New'])
-        clientQuery = {"_id": get_sha2(client['Name'])}
-        newValues = { "$set": { "IPAddress": newIP } }
-        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+            returnIP(networkName,clientName=client['Name'])
+
+            newIP = requestIP(networkName,clientName=client['Name'])
+            clientQuery = {"_id": get_sha2(client['Name'])}
+            newValues = { "$set": { "IPAddress": newIP } }
+            update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+            client['New'] = newIP
+            clientIPInjectToNetworkDef[client['Name']] = newIP #These IP should be injected to the network definition
+    if(WGmode):
+        ## Client IP static Added
+        for client in clientsAddedIP:
+            
+            returnIP(networkName,clientName=client['Name'])
+
+            newIP = requestIP(networkName,clientName=client['Name'],IP=client['New'])
+            clientQuery = {"_id": get_sha2(client['Name'])}
+            newValues = { "$set": { "IPAddress": newIP } }
+            update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
     ## Client Group,Routes,Hostname,UnderControl Change
-    
-    for client in networkDefiDict['WGNet']['Clients']:
-        
-        if 'Group' not in client:
-            group = 'Clients'
-        else:
-            group = client['Group']
-        clientQuery = {"_id": get_sha2(client['Name'])}
-        newValues = { "$set": { "Hostname": client['Hostname'], "UnderControl": client['UnderControl'], "Routes": client["Routes"], "Group": group } }
-        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+    if(WGmode):
+        for client in networkDefiDict['WGNet']['Clients']:
+            
+            if 'Group' not in client:
+                group = 'Clients'
+            else:
+                group = client['Group']
+            clientQuery = {"_id": get_sha2(client['Name'])}
+            newValues = { "$set": { "Hostname": client['Hostname'], "UnderControl": client['UnderControl'], "Routes": client["Routes"], "Group": group } }
+            update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
-    # Clients which are underControl
-    for client in clientsUnderControl:
-        
-        keys = generateEDKeyPairs()
-        clientQuery = {"_id": get_sha2(client['Name'])}
-        newValues = { "$set": { "PublicKey": keys[1], "PrivateKey": keys[0]} }
-        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+    if(WGmode):
+        # Clients which are underControl
+        for client in clientsUnderControl:
+            
+            keys = generateEDKeyPairs()
+            clientQuery = {"_id": get_sha2(client['Name'])}
+            newValues = { "$set": { "PublicKey": keys[1], "PrivateKey": keys[0]} }
+            update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
     
     # Clients which are not underControl
-    for client in clientNotUnderControl:
-        
-        clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
-        key = getFile(clientKeyPath)
+    if(WGmode):
+        for client in clientNotUnderControl:
+            
+            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+            key = getFile(clientKeyPath)
 
-        if (type(key) == dict):
-            typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
-            raise typer.Exit(code=1)
-        
-        clientQuery = {"_id": get_sha2(client['Name'])}
-        newValues = { "$set": { "PublicKey": key, "PrivateKey": "" } }
-        update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
+            if (type(key) == dict):
+                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
+                raise typer.Exit(code=1)
+            
+            clientQuery = {"_id": get_sha2(client['Name'])}
+            newValues = { "$set": { "PublicKey": key, "PrivateKey": "" } }
+            update_one_abstract(database_name=networkName,table_name='clients',query=clientQuery,newvalue=newValues)
 
     # Clients Added
-    ## NotUnderControl 
+    ## NotUnderControl
+    defaultIP = '1.2.3.4'
     for client in clientsAddedNotUnderControl:
         
-        clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
-        key = getFile(clientKeyPath)
+        if(WGmode):
+            clientKeyPath = "{0}/{1}.pb".format(keyDirectory,client['Name'])
+            key = getFile(clientKeyPath)
 
-        if (type(key) == dict):
-            typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
-            raise typer.Exit(code=1)
+            if (type(key) == dict):
+                typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
+                raise typer.Exit(code=1)
         
         if ('IPAddress' in client):
-            IP = requestIP(network=networkName,clientName=client['Name'],IP=client['IPAddress'])
-            clientIPInjectToNetworkDef[client['Name']] = IP
+            if(WGmode):
+                IP = requestIP(network=networkName,clientName=client['Name'],IP=client['IPAddress'])
+                clientIPInjectToNetworkDef[client['Name']] = IP
+            else:
+                clientIPInjectToNetworkDef[client['Name']] = client['IPAddress']
         else:
-            IP = requestIP(network=networkName,clientName=client['Name'])
-            clientIPInjectToNetworkDef[client['Name']] = IP
+            if(WGmode):
+                IP = requestIP(network=networkName,clientName=client['Name'])
+                clientIPInjectToNetworkDef[client['Name']] = IP
+            else:
+                clientIPInjectToNetworkDef[client['Name']] = defaultIP
 
         clientRoute = ""
         if ('Routes' in client):
@@ -939,30 +982,41 @@ def update(
         if ('Group' in client):
             clientGroup = client['Group']
 
-        clientData = {
-            "_id": get_sha2(client['Name']),
-            "Name": client['Name'],
-            "Hostname": client['Hostname'],
-            "UnderControl": client['UnderControl'],
-            "Routes": clientRoute,
-            "IPAddress": IP,
-            "Group": clientGroup,
-            "PublicKey": key,
-            "PrivateKey": ""
-        }
-        add_entry_one(database_name=networkName,table_name='clients',data=clientData)
+        if(WGmode):
+            clientData = {
+                "_id": get_sha2(client['Name']),
+                "Name": client['Name'],
+                "Hostname": client['Hostname'],
+                "UnderControl": client['UnderControl'],
+                "Routes": clientRoute,
+                "IPAddress": IP,
+                "Group": clientGroup,
+                "PublicKey": key,
+                "PrivateKey": ""
+            }
+            
+            add_entry_one(database_name=networkName,table_name='clients',data=clientData)
 
     ## UnderControl
     for client in clientsAddedUnderControl:
         
-        key = generateEDKeyPairs()
+        if(WGmode):
+            key = generateEDKeyPairs()
 
         if ('IPAddress' in client):
-            IP = requestIP(network=networkName,clientName=client['Name'],IP=client['IPAddress'])
-            clientIPInjectToNetworkDef[client['Name']] = IP
+            if(WGmode):
+                IP = requestIP(network=networkName,clientName=client['Name'],IP=client['IPAddress'])
+                clientIPInjectToNetworkDef[client['Name']] = IP
+            else:
+                IP = defaultIP
+                clientIPInjectToNetworkDef[client['Name']] = client['IPAddress']
         else:
-            IP = requestIP(network=networkName,clientName=client['Name'])
-            clientIPInjectToNetworkDef[client['Name']] = IP
+            if(WGmode):
+                IP = requestIP(network=networkName,clientName=client['Name'])
+                clientIPInjectToNetworkDef[client['Name']] = IP
+            else:
+                IP = defaultIP
+                clientIPInjectToNetworkDef[client['Name']] = defaultIP
 
         clientRoute = ""
         if ('Routes' in client):
@@ -974,30 +1028,33 @@ def update(
         if ('Group' in client):
             clientGroup = client['Group']
 
-        clientData = {
-            "_id": get_sha2(client['Name']),
-            "Name": client['Name'],
-            "Hostname": client['Hostname'],
-            "UnderControl": client['UnderControl'],
-            "Routes": clientRoute,
-            "IPAddress": IP,
-            "Group": clientGroup,
-            "PublicKey": key[1],
-            "PrivateKey": key[0]
-        }
-        add_entry_one(database_name=networkName,table_name='clients',data=clientData)
+        if(WGmode):
+            clientData = {
+                "_id": get_sha2(client['Name']),
+                "Name": client['Name'],
+                "Hostname": client['Hostname'],
+                "UnderControl": client['UnderControl'],
+                "Routes": clientRoute,
+                "IPAddress": IP,
+                "Group": clientGroup,
+                "PublicKey": key[1],
+                "PrivateKey": key[0]
+            }
+            add_entry_one(database_name=networkName,table_name='clients',data=clientData)
 
     # Client Remove
-    for client in clientsRemoved:
-        
-        returnIP(network=networkName,clientName=client['Name'])
+    if(WGmode):
+        for client in clientsRemoved:
+            
+            returnIP(network=networkName,clientName=client['Name'])
 
-        clientQuery = {"_id": get_sha2(client['Name'])}
+            clientQuery = {"_id": get_sha2(client['Name'])}
 
-        delete_abstract_one(database_name=networkName,table_name='clients',query=clientQuery)
+            delete_abstract_one(database_name=networkName,table_name='clients',query=clientQuery)
     
 
     # update network definition and inject client IP to network definition
+
     if (len(clientIPInjectToNetworkDef) > 0):
         for client in networkDefiDict['WGNet']['Clients']:
 
@@ -1009,13 +1066,24 @@ def update(
     networkDefiForGraph = copy.deepcopy(networkDefiDictNoTouch)
 
     ## Update IPs
-    client2IP = mapClients2IP(network=networkName)
+    nxGraph = nx.read_graphml(graphFile)
+    if(WGmode):
+        client2IP = mapClients2IP(network=networkName)
     for client in networkDefiForGraph['WGNet']['Clients']:
-        client['IPAddress'] = client2IP[client['Name']]
+        if(WGmode):
+            client['IPAddress'] = client2IP[client['Name']]
+        else:
+            if('IPAddress' not in client):
+                clientsMapName2ID = parser.mapClientsIDName(nxGraph)
+                if (client['Name'] in clientsMapName2ID):
+                    clientID = clientsMapName2ID[client['Name']]
+                    client['IPAddress'] = nxGraph.nodes[clientID]['IPAddress']
+                else:
+                    client['IPAddress'] = defaultIP
 
     if(graphName == None):
         graphName = networkName +'-Updated'
-    nxGraph = nx.read_graphml(graphFile)
+    
     edgeToDrawName,groupsColor,edgeToDrawID = getEdges2Draw(graphFile,networkDefiDictNoTouch,oldNetworkDefiDict)
     g = pyyed.Graph()
     
@@ -1046,11 +1114,12 @@ def update(
         delete_abstract_one(database_name='Networks',table_name='init',query=networkQuery)
         raise typer.Exit(code=0)
     # Upload Network File to DataBase
-    networkTempPath = create_temporary_copy(path=networkFile,networkName="{0}.yaml".format(networkName))
-    netdefUniqueName = generate_slug(2)
-    upload(db=networkName,fs='netdef',filePath=networkTempPath,uniqueName=netdefUniqueName)
-    os.remove(networkTempPath)
-    typer.echo("The provided Network definition is added to the database with the unique name of {0}. You can use this name to access the network definition.".format(netdefUniqueName))
+    if(WGmode):
+        networkTempPath = create_temporary_copy(path=networkFile,networkName="{0}.yaml".format(networkName))
+        netdefUniqueName = generate_slug(2)
+        upload(db=networkName,fs='netdef',filePath=networkTempPath,uniqueName=netdefUniqueName)
+        os.remove(networkTempPath)
+        typer.echo("The provided Network definition is added to the database with the unique name of {0}. You can use this name to access the network definition.".format(netdefUniqueName))
 
 @app.command()
 def clone(
