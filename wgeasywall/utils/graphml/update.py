@@ -149,24 +149,27 @@ def getEdges2Draw(graphFile,newNetworkDefinition,oldNetworkDefinition):
         
     edgeToDrawName = []
     allMapID2Name = {**clientsMapID2Name,**groupsMapID2Name,**networkResourceMapID2Name}
-
+    edgeToDrawIDList = []
     for edge in edgeToDrawID:
 
         src = edge[0]
         dst = edge[1]
+        edgeToDrawIDList.append((src,dst))
         srcName = allMapID2Name[src]
         dstName = allMapID2Name[dst]
         edgeToDrawName.append((srcName,dstName))
     
-    return (edgeToDrawName,groupsColor)
+    return (edgeToDrawName,groupsColor,edgeToDrawIDList)
 
-def addEdges(graph,edgeToDrawName,mapName2Hostname):
+def addEdges(graph,edgeToDrawName,mapName2Hostname,edgeToDrawID,nxGraph):
     
     for edge in edgeToDrawName:
-
+        index = edgeToDrawName.index(edge)
+        srcID = edgeToDrawID[index][0]
+        dstID = edgeToDrawID[index][1]
+        edgeAttributes = nxGraph.get_edge_data(srcID,dstID)
         src = edge[0]
         dst = edge[1]
-
         if ('::' in src):
             src = src.split('::')[-1]
         if ('::' in dst):
@@ -176,8 +179,8 @@ def addEdges(graph,edgeToDrawName,mapName2Hostname):
             src = mapName2Hostname[src]
         if (dst in mapName2Hostname):
             dst = mapName2Hostname[dst]
-        
-        graph.add_edge(src,dst)
+        edgeAttributes.pop('id', None)
+        graph.add_edge(src,dst,custom_properties=edgeAttributes)
 
 def getResourcesAndClients(networkDefiDict):
     items = []
@@ -189,11 +192,17 @@ def getResourcesAndClients(networkDefiDict):
     
     return items
 
-def checkRemovedNodeInEdge(clientsAndResources,edgeToDrawName):
+def checkRemovedNodeInEdge(clientsAndResources,edgeToDrawName,edgeToDrawID):
 
     edge2Draw = []
+    edge2DrawID = []
 
     for edge in edgeToDrawName:
+
+        index=edgeToDrawName.index(edge)
+
+        srcID = edgeToDrawID[index][0]
+        dstID = edgeToDrawID[index][1]
 
         src = edge[0]
         dst = edge[1]
@@ -205,4 +214,5 @@ def checkRemovedNodeInEdge(clientsAndResources,edgeToDrawName):
         if ('::' not in dst and dst not in clientsAndResources and dst != 'Clients'):
             continue
         edge2Draw.append((src,dst))
-    return edge2Draw
+        edge2DrawID.append((srcID,dstID))
+    return edge2Draw,edge2DrawID

@@ -1015,8 +1015,10 @@ def update(
 
     if(graphName == None):
         graphName = networkName +'-Updated'
-    edgeToDrawName,groupsColor = getEdges2Draw(graphFile,networkDefiDictNoTouch,oldNetworkDefiDict)
+    nxGraph = nx.read_graphml(graphFile)
+    edgeToDrawName,groupsColor,edgeToDrawID = getEdges2Draw(graphFile,networkDefiDictNoTouch,oldNetworkDefiDict)
     g = pyyed.Graph()
+    
     addNodeCustomProperties(g)
     addEdgeCustomProperties(g)
     clientsControlLevel = getClientBasedControlLevel(networkDefiDictNoTouch)
@@ -1031,8 +1033,10 @@ def update(
     generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName)
     # Check if the Nodes are removed from network definition
     resourcesAndClients = getResourcesAndClients(networkDefiDictNoTouch)
-    edges2Draw = checkRemovedNodeInEdge(resourcesAndClients,edgeToDrawName)
-    addEdges(g,edges2Draw,mapName2Hostname)
+    # edges2Draw,edges2DrawID = checkRemovedNodeInEdge(resourcesAndClients,edgeToDrawName,edgeToDrawID)
+    edges2Draw = edgeToDrawName
+    edges2DrawID = edgeToDrawID
+    addEdges(g,edges2Draw,mapName2Hostname,edges2DrawID,nxGraph)
    
     exportGraphFile(g,graphName)
     # NOTE : EACH update should be executed with the graphfile and its corresponding graphfile , if not it cause inconssitency in the generated graphfile
