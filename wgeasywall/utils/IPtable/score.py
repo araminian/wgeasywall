@@ -1,13 +1,14 @@
 
 from typing import Tuple
 
+from networkx.generators.trees import prefix_tree
 
-def getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Name,nodePriority=1000,resourcePriority=200,groupPriority=100) -> Tuple[list,list]:
+
+def getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Name,serverMapID2Name,nodePriority=1000,resourcePriority=200,groupPriority=100) -> Tuple[list,list]:
     
     edgeScoresID = []
     edgeScoresName = []
     for edge in allEdges:
-
         srcEdgeID = edge[0]
         dstEdgeID = edge[1]
         srcType = ""
@@ -24,6 +25,10 @@ def getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Na
             srcPriority = resourcePriority
             srcName = networkResourceMapID2Name[srcEdgeID]
             srcType = "Resource"
+        if (srcEdgeID in serverMapID2Name):
+            srcPriority = resourcePriority
+            srcName = serverMapID2Name[srcEdgeID]
+            srcType = "Server"
 
         if (dstEdgeID in groupsMapID2Name):
             dstPriority = groupPriority
@@ -37,7 +42,10 @@ def getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Na
             dstPriority = resourcePriority
             dstName = networkResourceMapID2Name[dstEdgeID]
             dstType = "Resource"
-        
+        if (dstEdgeID in serverMapID2Name):
+            dstPriority = resourcePriority
+            dstName = serverMapID2Name[dstEdgeID]
+            dstType = "Server"
         srcDepth = srcEdgeID.count("::") + 1
         dstDepth = dstEdgeID.count("::") + 1
 

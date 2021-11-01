@@ -33,6 +33,20 @@ def getNetworkResourceNodes(Graph):
 def getClient(Graph,ClientName):
     return [x for x,y in Graph.nodes(data=True) if 'Name' in y and y['Name']==ClientName and 'Type' in y and y['Type'] == 'Client'][0]
 
+# Get Server
+def mapServerIDName(Graph):
+    nodesList = Graph.nodes(data=False)
+    nodesDict = {}
+    for node in nodesList:
+        if('Name' not in Graph.nodes[node] ):
+            continue
+        if(Graph.nodes[node]['Type']!='Server'):
+            continue
+        nodeName = Graph.nodes[node]['Name']
+        nodeID = node 
+        nodesDict[nodeName] = nodeID
+    return nodesDict
+
 
 # Get Clients Dict to Map Name and IDs
 def mapClientsIDName(Graph):

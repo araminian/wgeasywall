@@ -69,6 +69,8 @@ def generateFunctionSyntax(graph,edgeID,edgeName):
         functionArguments.append("srcSet=WGEasywall-{0}".format(srcSetName))
     elif(srcType=='Node'):
         functionArguments.append("srcIP={0}".format(graph.nodes[srcEdgeID]['IPAddress']))
+    elif(srcType=='Server'):
+        pass
     elif(srcType=='Resource'):
         resource = graph.nodes[srcEdgeID]
         if ('Hostname' in resource and resource['Hostname'] != 'NULL'):
@@ -85,6 +87,8 @@ def generateFunctionSyntax(graph,edgeID,edgeName):
         functionArguments.append("dstSet=WGEasywall-{0}".format(dstSetName))
     elif(dstType=='Node'):
         functionArguments.append("dstIP={0}".format(graph.nodes[dstEdgeID]['IPAddress']))
+    elif(dstType=='Server'):
+        pass
     elif(dstType=='Resource'):
         resource = graph.nodes[dstEdgeID]
         if ('Hostname' in resource and resource['Hostname'] != 'NULL'):

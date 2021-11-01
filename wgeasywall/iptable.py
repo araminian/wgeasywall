@@ -34,11 +34,12 @@ def generate(
     clientsMapName2ID = parser.mapClientsIDName(graph)
     groupsMapName2ID = parser.mapGroupsIDName(graph,groups)
     networkResourceMapName2ID = parser.mapNetResourcesIDName(graph)
+    serverMapName2ID = parser.mapServerIDName(graph)
 
     clientsMapID2Name = dict((v,k) for k,v in clientsMapName2ID.items())
     groupsMapID2Name = dict((v,k) for k,v in groupsMapName2ID.items())
     networkResourceMapID2Name = dict((v,k) for k,v in networkResourceMapName2ID.items())
-
+    serverMapID2Name = dict((v,k) for k,v in serverMapName2ID.items())
     # Create IPSet
     createdIPSet = {}
     for edge in allEdges:
@@ -69,7 +70,8 @@ def generate(
 
     generateIPSetScript(createdIPSet)     
     
-    edgeScoreID , edgeScoreName = getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Name)
+    edgeScoreID , edgeScoreName = getScore(allEdges,clientsMapID2Name,groupsMapID2Name,networkResourceMapID2Name,serverMapID2Name)
+    
     IPtableRules = []
     for edge in edgeScoreID:
         index = edgeScoreID.index(edge)
@@ -89,6 +91,8 @@ def generate(
             if(srcType == 'Group'):
                 srcSetName = srcEdgeName.replace("::","-")
                 argumentsToInject['srcSet'] = "WGEasywall-{0}".format(srcSetName)
+            elif(srcType == 'Server'):
+                pass
             elif(srcType=='Node'):
                 argumentsToInject['srcIP'] = graph.nodes[srcEdgeID]['IPAddress']
             elif(srcType=='Resource'):
@@ -103,6 +107,8 @@ def generate(
             if (dstType == 'Group'):
                 dstSetName = dstEdgeName.replace("::","-")
                 argumentsToInject['dstSet'] = "WGEasywall-{0}".format(dstSetName)
+            elif(dstType == 'Server'):
+                pass
             elif(dstType == 'Node'):
                 argumentsToInject['dstIP'] = graph.nodes[dstEdgeID]['IPAddress']
             elif(dstType=='Resource'):
