@@ -127,25 +127,26 @@ def generateGroupsObject(graph,netDict):
     return allGroupObject
 
 
-def generateGraph(allGroupObject,netDict,graph,clients,graphName,mode='create'):
+def generateGraph(allGroupObject,netDict,graph,clients,graphName,mode='create',WGMode=True):
 
     
     network = netDict['WGNet']
     networkName = network['Name']
     networkColor = getRandomColor()
 
-    serverProperties = network['Server']
-    serverProperties['Type'] = 'Server'
-    serverProperties['Subnet'] = network['Subnet']
-    serverProperties['NetworkName'] = networkName
-    serverProperties['COLOR'] = networkColor
-    serverRoutes = network['Server']['Routes']
-    
-    graph.add_node(serverProperties['Hostname'], shape="roundrectangle", font_style="bolditalic",shape_fill=networkColor,custom_properties=serverProperties)
+    if(WGMode):
+        serverProperties = network['Server']
+        serverProperties['Type'] = 'Server'
+        serverProperties['Subnet'] = network['Subnet']
+        serverProperties['NetworkName'] = networkName
+        serverProperties['COLOR'] = networkColor
+        serverRoutes = network['Server']['Routes']
+        
+        graph.add_node(serverProperties['Hostname'], shape="roundrectangle", font_style="bolditalic",shape_fill=networkColor,custom_properties=serverProperties)
 
     for client in clients: # for client in network['Clients']
         clientProperties = client
-        if('Routes' not in clientProperties):
+        if(WGMode and 'Routes' not in clientProperties):
             clientProperties['Routes'] = serverRoutes
         clientProperties['Type'] = 'Client'
         clientProperties['NetworkName'] = networkName

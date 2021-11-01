@@ -1,5 +1,5 @@
 
-def getClientBasedControlLevel(networkDict):
+def getClientBasedControlLevel(networkDict,WGMode):
 
     """
     Catagorize clients based on control level
@@ -8,7 +8,7 @@ def getClientBasedControlLevel(networkDict):
     """
     controlledClients = []
     uncontrolledClients = []
-    clientsInNetwork = getClients(networkDict)
+    clientsInNetwork = getClients(networkDict,WGMode)
     
     for client in clientsInNetwork:
         if('UnderControl' not in client):
@@ -20,13 +20,14 @@ def getClientBasedControlLevel(networkDict):
     
     return {'Controlled':controlledClients,'Uncontrolled':uncontrolledClients}
 
-def getClients(networkDict):
+def getClients(networkDict,WGMode=True):
 
     """
     Get Clients in a Network
     """
-    server = networkDict['WGNet']['Server']
-    severRoute = server['Routes']
+    if(WGMode):
+        server = networkDict['WGNet']['Server']
+        severRoute = server['Routes']
     
 
     clientsInNetwork = networkDict['WGNet']['Clients']
@@ -36,7 +37,7 @@ def getClients(networkDict):
         #     client['Group'] = ""
         
         # If client has no defined route , it should inherit from Server
-        if not 'Routes' in client:
+        if WGMode and not 'Routes' in client:
             client['Routes'] = severRoute
         
         if not 'IPAddress' in client:
@@ -58,9 +59,9 @@ def getNetworkResources(networkDict):
 
     return networkDict['NetworkResources']
 
-def getClientsIP(networkDict):
+def getClientsIP(networkDict,WGMode=True):
 
-    clientsInNetwork = getClients(networkDict)
+    clientsInNetwork = getClients(networkDict,WGMode)
     clientsIPs = {}
     for client in clientsInNetwork:
         

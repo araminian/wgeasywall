@@ -35,73 +35,75 @@ from python_hosts import Hosts, HostsEntry
 def linter(networkDefiDict,WGMode):
 
     LinterError = False
-    CIDR = networkDefiDict['WGNet']['Subnet']
-    ReservedRange = networkDefiDict['WGNet']['ReservedRange']
+    if(WGMode):
+        CIDR = networkDefiDict['WGNet']['Subnet']
+        ReservedRange = networkDefiDict['WGNet']['ReservedRange']
 
-    # Check CIDR is Valid
-    LinterCIDR = False
-    validCIDR = isValidCIDR(CIDR)
-    if type(validCIDR) == dict and 'ErrorCode' in validCIDR:
-        typer.echo("ERROR : {0} is not the valid CIDR for subnet.".format(CIDR))
-        LinterError = True
-        LinterCIDR = True
-    
-    # It should retunr if the CIDR is not valid
-    if (LinterCIDR):
-        return LinterCIDR
+        # Check CIDR is Valid
+        LinterCIDR = False
+        validCIDR = isValidCIDR(CIDR)
+        if type(validCIDR) == dict and 'ErrorCode' in validCIDR:
+            typer.echo("ERROR : {0} is not the valid CIDR for subnet.".format(CIDR))
+            LinterError = True
+            LinterCIDR = True
+        
+        # It should retunr if the CIDR is not valid
+        if (LinterCIDR):
+            return LinterCIDR
 
-    # Check is Reserved Range is Valid
-    ReservedRangeList = ReservedRange.split("-")
-    LinterReservedRange = False
-    if (len(ReservedRangeList) != 2):
-        typer.echo("ERROR : {0} is not the valid Reserved Range for the network.".format(ReservedRange))
-        LinterError = True
-    else:
-        for IP in ReservedRangeList:
-            validIP = isValidIP(IP)
-            if type(validIP) == dict and 'ErrorCode' in validIP:
-                typer.echo("ERROR : {0} is not the valid IP for reserved range.".format(IP))
-                LinterError = True
-                LinterReservedRange = True
-            else:
-                inCIDR = isIPinCIDR(CIDR,IP)
-                if not inCIDR:
-                    typer.echo("ERROR : {0} is not in the range CIDR {1} for reserved range.".format(IP,CIDR))
+        # Check is Reserved Range is Valid
+        ReservedRangeList = ReservedRange.split("-")
+        LinterReservedRange = False
+        if (len(ReservedRangeList) != 2):
+            typer.echo("ERROR : {0} is not the valid Reserved Range for the network.".format(ReservedRange))
+            LinterError = True
+        else:
+            for IP in ReservedRangeList:
+                validIP = isValidIP(IP)
+                if type(validIP) == dict and 'ErrorCode' in validIP:
+                    typer.echo("ERROR : {0} is not the valid IP for reserved range.".format(IP))
                     LinterError = True
+                    LinterReservedRange = True
+                else:
+                    inCIDR = isIPinCIDR(CIDR,IP)
+                    if not inCIDR:
+                        typer.echo("ERROR : {0} is not in the range CIDR {1} for reserved range.".format(IP,CIDR))
+                        LinterError = True
+        
+        # Retrun if the reserved range is not valid
+        if (LinterReservedRange):
+            return LinterReservedRange
     
-    # Retrun if the reserved range is not valid
-    if (LinterReservedRange):
-        return LinterReservedRange
-    
-    # Server
-    serverInfo = networkDefiDict['WGNet']['Server']
-    ### Port
-    validPort = isValidPort(serverInfo['Port'])
-    if (type(validPort) == dict and 'ErrorCode' in validPort):
-        typer.echo("ERROR: {0}".format(validPort['ErrorMsg']))
-        LinterError = True
-    ### Routes
-    RoutesList = serverInfo['Routes'].split(',')
-    for route in RoutesList:
-        validtest = isValidCIDR(route)
+    if(WGMode):
+        # Server
+        serverInfo = networkDefiDict['WGNet']['Server']
+        ### Port
+        validPort = isValidPort(serverInfo['Port'])
+        if (type(validPort) == dict and 'ErrorCode' in validPort):
+            typer.echo("ERROR: {0}".format(validPort['ErrorMsg']))
+            LinterError = True
+        ### Routes
+        RoutesList = serverInfo['Routes'].split(',')
+        for route in RoutesList:
+            validtest = isValidCIDR(route)
+            if (type(validtest) == dict and 'ErrorCode' in validtest):
+                typer.echo("ERROR : {0} is not the valid CIDR for server routes.".format(route))
+                LinterError = True
+        ### Public IP
+        serverPublicIP = serverInfo['PublicIPAddress']
+        validtest = isValidIP(serverPublicIP)
         if (type(validtest) == dict and 'ErrorCode' in validtest):
-            typer.echo("ERROR : {0} is not the valid CIDR for server routes.".format(route))
+                typer.echo("ERROR : {0} is not the valid server public IP.".format(serverPublicIP))
+                LinterError = True
+        
+        ### Private IP
+        validtest = isValidIP(serverInfo['IPAddress'])
+        if (type(validtest) == dict and 'ErrorCode' in validtest):
+            typer.echo("ERROR : {0} is not the valid server IP.".format(serverInfo['IPAddress']))
             LinterError = True
-    ### Public IP
-    serverPublicIP = serverInfo['PublicIPAddress']
-    validtest = isValidIP(serverPublicIP)
-    if (type(validtest) == dict and 'ErrorCode' in validtest):
-            typer.echo("ERROR : {0} is not the valid server public IP.".format(serverPublicIP))
-            LinterError = True
-    
-    ### Private IP
-    validtest = isValidIP(serverInfo['IPAddress'])
-    if (type(validtest) == dict and 'ErrorCode' in validtest):
-        typer.echo("ERROR : {0} is not the valid server IP.".format(serverInfo['IPAddress']))
-        LinterError = True
-    
+        
     # Client
-    clientIPs = getClientsIP(networkDefiDict)
+    clientIPs = getClientsIP(networkDefiDict,WGMode)
     clientsInNetwork = networkDefiDict['WGNet']['Clients']
 
     ## check clients with same name,hostname,valid route
@@ -127,14 +129,15 @@ def linter(networkDefiDict,WGMode):
             typer.echo("ERROR: The client hostname of {0} has been used more than once.".format(hostname))
             LinterError = True
     ## route
-    for client,route in clientRoute.items():
-        RoutesList = route.split(',')
-        for route in RoutesList:
-            validtest = isValidCIDR(route)
-            if (type(validtest) == dict and 'ErrorCode' in validtest):
-                typer.echo("ERROR : {0} is not the valid CIDR for client {1} routes.".format(route,client))
-                LinterError = True
-    
+    if(WGMode):
+        for client,route in clientRoute.items():
+            RoutesList = route.split(',')
+            for route in RoutesList:
+                validtest = isValidCIDR(route)
+                if (type(validtest) == dict and 'ErrorCode' in validtest):
+                    typer.echo("ERROR : {0} is not the valid CIDR for client {1} routes.".format(route,client))
+                    LinterError = True
+        
 
     ## Check if the client has valid IP
     LinterUnvalidIPs = False
@@ -155,16 +158,17 @@ def linter(networkDefiDict,WGMode):
 
 
     ## Check if client has IP not in the range of CIDR
-    notInNetworkIPs = {}
-    for client,IP in clientIPs.items(): 
-        if not isIPinCIDR(CIDR,IP):
-            notInNetworkIPs[client] = IP
-    if len(notInNetworkIPs) > 0 and WGMode:
-        typer.echo("ERROR: These clients have IP addresses which are not in range of network {0}".format(CIDR))
-        for client,IP in notInNetworkIPs.items():
-            typer.echo("{0} with IP of {1}".format(client,IP))
-        typer.echo("\n")
-        LinterError = True
+    if(WGMode):
+        notInNetworkIPs = {}
+        for client,IP in clientIPs.items(): 
+            if not isIPinCIDR(CIDR,IP):
+                notInNetworkIPs[client] = IP
+        if len(notInNetworkIPs) > 0:
+            typer.echo("ERROR: These clients have IP addresses which are not in range of network {0}".format(CIDR))
+            for client,IP in notInNetworkIPs.items():
+                typer.echo("{0} with IP of {1}".format(client,IP))
+            typer.echo("\n")
+            LinterError = True
 
     ## Check if two clients have same IP Address
     duplicateIPs = findDuplicateIP(clientIPs)
@@ -176,28 +180,30 @@ def linter(networkDefiDict,WGMode):
         LinterError = True
     
     ## Check if the clients IP is range of rserved range
-    unRengedIPs = {}
-    for client,IP in clientIPs.items(): 
-        if not isIPinRange(ReservedRangeList,IP):
-            unRengedIPs[client] = IP
-    if len(unRengedIPs) > 0 and WGMode:
-        typer.echo("ERROR: These clients have IP addresses which are not in range of reserved IPs {0}".format(networkDefiDict['WGNet']['ReservedRange']))
-        for client,IP in unRengedIPs.items():
-            typer.echo("{0} with IP of {1}".format(client,IP))
-        typer.echo("\n")
-        LinterError = True
+    if(WGMode):
+        unRengedIPs = {}
+        for client,IP in clientIPs.items(): 
+            if not isIPinRange(ReservedRangeList,IP):
+                unRengedIPs[client] = IP
+        if len(unRengedIPs) > 0:
+            typer.echo("ERROR: These clients have IP addresses which are not in range of reserved IPs {0}".format(networkDefiDict['WGNet']['ReservedRange']))
+            for client,IP in unRengedIPs.items():
+                typer.echo("{0} with IP of {1}".format(client,IP))
+            typer.echo("\n")
+            LinterError = True
     
     ## Check if the client has same IP as server
-    clientIPLikeServer= {}
-    for client,IP in clientIPs.items():
-        if IP == serverInfo['IPAddress']:
-            clientIPLikeServer[client] = IP
-    if len(clientIPLikeServer) and WGMode > 0:
-        typer.echo("ERROR: These clients have IP addresses eqaul to server IP address")
-        for client,IP in clientIPLikeServer.items():
-            typer.echo("{0} with IP of {1}".format(client,IP))
-        typer.echo("\n")
-        LinterError = True
+    if(WGMode):
+        clientIPLikeServer= {}
+        for client,IP in clientIPs.items():
+            if IP == serverInfo['IPAddress']:
+                clientIPLikeServer[client] = IP
+        if len(clientIPLikeServer) > 0:
+            typer.echo("ERROR: These clients have IP addresses eqaul to server IP address")
+            for client,IP in clientIPLikeServer.items():
+                typer.echo("{0} with IP of {1}".format(client,IP))
+            typer.echo("\n")
+            LinterError = True
 
 
     # NetworkResource
@@ -260,11 +266,12 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
     if (LintError):
         typer.echo("Abort!")
         raise typer.Exit(code=1)
-
-    # Check if the network subnet has overlap with others
-    CIDR = networkDefiDict['WGNet']['Subnet']
     
-    clientsControlLevel = getClientBasedControlLevel(networkDefiDict)
+    # Check if the network subnet has overlap with others
+    if(WGmode):
+        CIDR = networkDefiDict['WGNet']['Subnet']
+    
+    clientsControlLevel = getClientBasedControlLevel(networkDefiDict,WGmode)
 
     networkDefiDictNoTouch = copy.deepcopy(networkDefiDict)
 
@@ -292,40 +299,40 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
     # Network Part
     if (graphName == None):
         graphName = networkName
-    
-    ReservedRange = networkDefiDict['WGNet']['ReservedRange'].split('-')
-    ReservedRangeIP = netaddr.IPRange(ReservedRange[0],ReservedRange[1])
-    CIDRInfo = getCIDRInfo(CIDR)
+    if(WGmode):
+        ReservedRange = networkDefiDict['WGNet']['ReservedRange'].split('-')
+        ReservedRangeIP = netaddr.IPRange(ReservedRange[0],ReservedRange[1])
+        CIDRInfo = getCIDRInfo(CIDR)
 
-    serverInfo = networkDefiDict['WGNet']['Server']
+        serverInfo = networkDefiDict['WGNet']['Server']
 
-    CIDRData = {
-        '_id': get_sha2(CIDR),
-        'cidr': CIDR,
-        'mask': str(CIDRInfo['Mask']),
-        'size': CIDRInfo['Size'],
-        'firstIP': str(CIDRInfo['FirstIP']),
-        'lastIP': str(CIDRInfo['LastIP']),
-        # 'nextIP': str(CIDRInfo['FirstIP']), 
-        'serverIP': serverInfo['IPAddress'],
-        'reservedRange': networkDefiDict['WGNet']['ReservedRange']
-    }
-    freeIPLIST = []
-    for ip in CIDRInfo['CIDR']:
+        CIDRData = {
+            '_id': get_sha2(CIDR),
+            'cidr': CIDR,
+            'mask': str(CIDRInfo['Mask']),
+            'size': CIDRInfo['Size'],
+            'firstIP': str(CIDRInfo['FirstIP']),
+            'lastIP': str(CIDRInfo['LastIP']),
+            # 'nextIP': str(CIDRInfo['FirstIP']), 
+            'serverIP': serverInfo['IPAddress'],
+            'reservedRange': networkDefiDict['WGNet']['ReservedRange']
+        }
+        freeIPLIST = []
+        for ip in CIDRInfo['CIDR']:
 
-        if(ip == CIDRInfo['CIDR'].network or ip == CIDRInfo['CIDR'].broadcast or str(ip) == serverInfo['IPAddress']):
-            continue
+            if(ip == CIDRInfo['CIDR'].network or ip == CIDRInfo['CIDR'].broadcast or str(ip) == serverInfo['IPAddress']):
+                continue
+            
+            data = {}
+            data['_id'] = get_sha2(str(ip))
+            data['IP'] = str(ip)
+            if (ip in ReservedRangeIP):
+                data['static'] = 'True'
+            else:
+                data['static'] = 'False'
+
+            freeIPLIST.append(data)
         
-        data = {}
-        data['_id'] = get_sha2(str(ip))
-        data['IP'] = str(ip)
-        if (ip in ReservedRangeIP):
-            data['static'] = 'True'
-        else:
-            data['static'] = 'False'
-
-        freeIPLIST.append(data)
-    
 
     # Key Part
     
@@ -367,6 +374,7 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
             raise typer.Exit(code=1)
         
         typer.echo("IP-Assigner setup done.")
+    
     defaultIP = '1.2.3.4'
     for client in allClients:
         client['_id'] = get_sha2(client['Name'])
@@ -392,7 +400,7 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
     addNodeCustomProperties(g)
     addEdgeCustomProperties(g)
     allGroupObject = generateGroupsObject(g,networkDefiDictNoTouch)
-    generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients2addGraph,graphName)
+    generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients2addGraph,graphName,WGMode=WGmode)
     if(WGmode):
         add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':CIDR})
     exportGraphFile(g,graphName)
@@ -473,94 +481,100 @@ def update(
         add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':networkDefiDict['WGNet']['Subnet']})
 
     # Detect Difference between OLD and NEW in Server Settings 
-
-    serverInfo = networkDefiDict['WGNet']['Server']
-    oldServerInfo = oldNetworkDefiDict['WGNet']['Server']
+    if(WGmode):
+        serverInfo = networkDefiDict['WGNet']['Server']
+        oldServerInfo = oldNetworkDefiDict['WGNet']['Server']
 
     ## Lint
     LintError = linter(networkDefiDict,WGmode)
     ### server name and hostname
-    if (serverInfo['Name'] != oldServerInfo['Name']):
-        typer.echo("ERROR: The server's name can't be updated after initialization.")
-        typer.echo("Update the server's name in the provided network defintion to {0} and re-run command.".format(oldServerInfo['Name']))
-        LintError = True
-    if (serverInfo['Hostname'] != oldServerInfo['Hostname']):
-        typer.echo("ERROR: The server's hostname can't be updated after initialization.")
-        typer.echo("Update the server's hostname in the provided network defintion to {0} and re-run command.".format(oldServerInfo['Name']))
-        LintError = True
+    if(WGmode):
+        if (serverInfo['Name'] != oldServerInfo['Name']):
+            typer.echo("ERROR: The server's name can't be updated after initialization.")
+            typer.echo("Update the server's name in the provided network defintion to {0} and re-run command.".format(oldServerInfo['Name']))
+            LintError = True
+        if (serverInfo['Hostname'] != oldServerInfo['Hostname']):
+            typer.echo("ERROR: The server's hostname can't be updated after initialization.")
+            typer.echo("Update the server's hostname in the provided network defintion to {0} and re-run command.".format(oldServerInfo['Name']))
+            LintError = True
     ### ALL
     if (LintError):
         typer.echo("Update Abort.")
         raise typer.Exit(code=1)
     
     ## Server Detect Changes 
-    isServerChanged = False
-    ### Port
-    isChangeServerPort = (False,"","")
-    if (serverInfo['Port'] != oldServerInfo['Port']):
-        typer.echo("The server's port will be updated form {0} to {1} .".format(oldServerInfo['Port'],serverInfo['Port']))
-        isChangeServerPort = (True,serverInfo['Port'],oldServerInfo['Port'])
-        isServerChanged = True
+    if(WGmode):
+        isServerChanged = False
+        ### Port
+        isChangeServerPort = (False,"","")
+        if (serverInfo['Port'] != oldServerInfo['Port']):
+            typer.echo("The server's port will be updated form {0} to {1} .".format(oldServerInfo['Port'],serverInfo['Port']))
+            isChangeServerPort = (True,serverInfo['Port'],oldServerInfo['Port'])
+            isServerChanged = True
 
     ### Routes
-    isChangeServerRoutes = (False,"","")
-    if (serverInfo['Routes'] != oldServerInfo['Routes']):
-        typer.echo("The server's routes will be updated form {0} to {1} .".format(oldServerInfo['Routes'],serverInfo['Routes']))
-        isChangeServerRoutes = (True,serverInfo['Routes'],oldServerInfo['Routes'])
-        isServerChanged = True
+    if(WGmode):
+        isChangeServerRoutes = (False,"","")
+        if (serverInfo['Routes'] != oldServerInfo['Routes']):
+            typer.echo("The server's routes will be updated form {0} to {1} .".format(oldServerInfo['Routes'],serverInfo['Routes']))
+            isChangeServerRoutes = (True,serverInfo['Routes'],oldServerInfo['Routes'])
+            isServerChanged = True
         
     ### Public IP
-    isChangeServerPublicIP = (False,"","")
-    if (serverInfo['PublicIPAddress'] != oldServerInfo['PublicIPAddress']):
-        typer.echo("The server's public IP address will be updated form {0} to {1} .".format(oldServerInfo['PublicIPAddress'],serverInfo['PublicIPAddress']))
-        isChangeServerPublicIP = (True,serverInfo['PublicIPAddress'],oldServerInfo['PublicIPAddress'])
-        isServerChanged = True 
+    if(WGmode):
+        isChangeServerPublicIP = (False,"","")
+        if (serverInfo['PublicIPAddress'] != oldServerInfo['PublicIPAddress']):
+            typer.echo("The server's public IP address will be updated form {0} to {1} .".format(oldServerInfo['PublicIPAddress'],serverInfo['PublicIPAddress']))
+            isChangeServerPublicIP = (True,serverInfo['PublicIPAddress'],oldServerInfo['PublicIPAddress'])
+            isServerChanged = True 
 
     ### Private IP
-    isChangedServerIP = (False,"","")
-    if (serverInfo['IPAddress'] != oldServerInfo['IPAddress']):
-        isServerChanged = True
-        typer.echo("The server's IP address will be updated form {0} to {1} .".format(oldServerInfo['IPAddress'],serverInfo['IPAddress']))
+    if(WGmode):
+        isChangedServerIP = (False,"","")
         if (serverInfo['IPAddress'] != oldServerInfo['IPAddress']):
-        #### Check if the IP is available to assign
-            IPQuery = {"IP":serverInfo['IPAddress']}
-            IPQueryResult = query_abstract(database_name=networkName,table_name='leasedIP',query=IPQuery)
-            if (type(IPQueryResult) == dict and 'ErrorCode' in IPQueryResult):
-                typer.echo("ERORR: Can't connect to database. {0}".format(IPQueryResult['ErrorMsg']))
-                raise typer.Exit(code=1)
-            IPQueryObject = list(IPQueryResult['Enteries'])
-            if (len(IPQueryObject) > 0):
-                typer.echo("ERROR: The IP {0} is already leased and can't be assigned to Server.".format(serverInfo['IPAddress']))
-                LintError = True
-                raise typer.Exit(code=1)
-        isChangedServerIP = (True,serverInfo['IPAddress'],oldServerInfo['IPAddress'])
-    
-    # Detect Difference between OLD and NEW in Network Settings
-    networkSettingsDiff = getNetDiff(networkDefiDict,oldNetworkDefiDict,networkNameNoTouch,'Net')['values_changed']
-
-    isChangeSubnet = (False,"","")
-
-    for item in networkSettingsDiff['Items']:
+            isServerChanged = True
+            typer.echo("The server's IP address will be updated form {0} to {1} .".format(oldServerInfo['IPAddress'],serverInfo['IPAddress']))
+            if (serverInfo['IPAddress'] != oldServerInfo['IPAddress']):
+            #### Check if the IP is available to assign
+                IPQuery = {"IP":serverInfo['IPAddress']}
+                IPQueryResult = query_abstract(database_name=networkName,table_name='leasedIP',query=IPQuery)
+                if (type(IPQueryResult) == dict and 'ErrorCode' in IPQueryResult):
+                    typer.echo("ERORR: Can't connect to database. {0}".format(IPQueryResult['ErrorMsg']))
+                    raise typer.Exit(code=1)
+                IPQueryObject = list(IPQueryResult['Enteries'])
+                if (len(IPQueryObject) > 0):
+                    typer.echo("ERROR: The IP {0} is already leased and can't be assigned to Server.".format(serverInfo['IPAddress']))
+                    LintError = True
+                    raise typer.Exit(code=1)
+            isChangedServerIP = (True,serverInfo['IPAddress'],oldServerInfo['IPAddress'])
         
-        if (item['AttributeChanged'] == 'ReservedRange'):
-            typer.echo("ERROR: The reserved range is fixed and can't be changed after initialization.")
-            typer.echo("Initialized value : {0} ".format(item['ObjectOldInfo']['ReservedRange']))
-            typer.echo("New value : {0} ".format(item['ObjectNewInfo']['ReservedRange']))
-            typer.echo("Please update the reserved range to initialized value and re-run command again")
-            raise typer.Exit(code=1)
+    # Detect Difference between OLD and NEW in Network Settings
+    if(WGmode):
+        networkSettingsDiff = getNetDiff(networkDefiDict,oldNetworkDefiDict,networkNameNoTouch,'Net')['values_changed']
 
-        if (item['AttributeChanged'] == 'Subnet'):
-            newSubnet = item['ObjectNewInfo']['Subnet']
-            oldSubnet = item['ObjectOldInfo']['Subnet']
+        isChangeSubnet = (False,"","")
 
-            if not isLargerCIDR(newSubnet,oldSubnet):
-                typer.echo("ERROR: The new subnet {0} is not supernet of old subnet {1}.".format(newSubnet,oldSubnet))
-                typer.echo("The new subnet should be larger than old subnet")
-                typer.echo("Update Abort.")
+        for item in networkSettingsDiff['Items']:
+            
+            if (item['AttributeChanged'] == 'ReservedRange'):
+                typer.echo("ERROR: The reserved range is fixed and can't be changed after initialization.")
+                typer.echo("Initialized value : {0} ".format(item['ObjectOldInfo']['ReservedRange']))
+                typer.echo("New value : {0} ".format(item['ObjectNewInfo']['ReservedRange']))
+                typer.echo("Please update the reserved range to initialized value and re-run command again")
                 raise typer.Exit(code=1)
-            else:
-                typer.echo("The network subnet will be updated from {0} to {1}.".format(oldSubnet,newSubnet))
-                isChangeSubnet = (True,newSubnet,oldSubnet)
+
+            if (item['AttributeChanged'] == 'Subnet'):
+                newSubnet = item['ObjectNewInfo']['Subnet']
+                oldSubnet = item['ObjectOldInfo']['Subnet']
+
+                if not isLargerCIDR(newSubnet,oldSubnet):
+                    typer.echo("ERROR: The new subnet {0} is not supernet of old subnet {1}.".format(newSubnet,oldSubnet))
+                    typer.echo("The new subnet should be larger than old subnet")
+                    typer.echo("Update Abort.")
+                    raise typer.Exit(code=1)
+                else:
+                    typer.echo("The network subnet will be updated from {0} to {1}.".format(oldSubnet,newSubnet))
+                    isChangeSubnet = (True,newSubnet,oldSubnet)
 
     ## Detect Client
     isClientChange = False # This attribute specify if we need to update clients 
@@ -579,13 +593,15 @@ def update(
     clientsAddedUnderControl = []
     clientsAddedNotUnderControl = []
     for client in clientResult['iterable_item_added']['Items']:
-        if(client['ObjectInfo']['UnderControl'] == 'False'):
+        if ('UnderControl' not in client['ObjectInfo']):
+            clientsAddedUnderControl.append(client['ObjectInfo'])
+        elif(client['ObjectInfo']['UnderControl'] == 'False'):
             clientsAddedNotUnderControl.append(client['ObjectInfo'])
-        if (client['ObjectInfo']['UnderControl'] == 'True'):
+        elif (client['ObjectInfo']['UnderControl'] == 'True'):
             clientsAddedUnderControl.append(client['ObjectInfo'])
         isClientChange = True
         typer.echo("Client '{0}' will be added to the network with these settings: \n{1}".format(client['ObjectName'],client['ObjectInfo']))
-        if(client['ObjectInfo']['UnderControl'] == 'False' and keyDirectory == None):
+        if('UnderControl' in client['ObjectInfo'] and client['ObjectInfo']['UnderControl'] == 'False' and keyDirectory == None):
             if (WGmode):
                 typer.echo("ERROR: Client is not under control which means the key direcotry should be specified.")
                 raise typer.Exit(code=1)
@@ -786,14 +802,14 @@ def update(
 
     ## Update Server
     ### return back the IP and get new One 
-    if (isChangedServerIP[0]):
+    if(WGmode):
+        if (isChangedServerIP[0]):
+            freeIP = {}
+            freeIP['_id'] = get_sha2(isChangedServerIP[2])
+            freeIP['IP'] = str(isChangedServerIP[2])
+            freeIP['static'] = 'True'
 
-        freeIP = {}
-        freeIP['_id'] = get_sha2(isChangedServerIP[2])
-        freeIP['IP'] = str(isChangedServerIP[2])
-        freeIP['static'] = 'True'
-
-        if(WGmode):
+        
             addResult = add_entry_one(database_name=networkName,table_name='freeIP',data=freeIP)
             if (type(addResult) == dict and 'ErrorCode' in addResult):
                 typer.echo("ERROR: Can't connect to database. {0}".format(addResult))
@@ -804,17 +820,18 @@ def update(
                 typer.echo ("ERROR: Can't request an IP for server. {0}".format(requestResult))
                 raise typer.Exit(code=1)
 
-        if (isServerChanged or isChangedServerIP[0]):
-            serverQuery = { "_id": get_sha2(serverInfo['Name']) }
-            serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
-            updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
-            if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
-                typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
-                raise typer.Exit(code=1)
+            if (isServerChanged or isChangedServerIP[0]):
+                serverQuery = { "_id": get_sha2(serverInfo['Name']) }
+                serverNewValues = { "$set": { "IPAddress": serverInfo['IPAddress'], "PublicIPAddress": serverInfo['PublicIPAddress'], "Port": serverInfo['Port'], "Routes": serverInfo['Routes']  } }
+                updateResult = update_one_abstract(database_name=networkName,table_name='server',query=serverQuery,newvalue=serverNewValues)
+                if (type(UpdateResult) == dict and 'ErrorCode' in updateResult):
+                    typer.echo("ERROR: Can't connet to database. {0}".format(updateResult))
+                    raise typer.Exit(code=1)
     
     ## Check if subnet is updated or not
-    serverInfo = networkDefiDict['WGNet']['Server']
-    if (isChangeSubnet[0] and WGmode):
+    if(WGmode):
+        serverInfo = networkDefiDict['WGNet']['Server']
+    if (WGmode and isChangeSubnet[0]):
 
         ### Update subnet
         newCIDR = isChangeSubnet[1]
@@ -971,18 +988,17 @@ def update(
                 clientIPInjectToNetworkDef[client['Name']] = IP
             else:
                 clientIPInjectToNetworkDef[client['Name']] = defaultIP
-
-        clientRoute = ""
-        if ('Routes' in client):
-            clientRoute = client['Routes']
-        else:
-            clientRoute = serverInfo['Routes']
-
-        clientGroup = ""
-        if ('Group' in client):
-            clientGroup = client['Group']
-
         if(WGmode):
+            clientRoute = ""
+            if ('Routes' in client):
+                clientRoute = client['Routes']
+            else:
+                clientRoute = serverInfo['Routes']
+
+            clientGroup = ""
+            if ('Group' in client):
+                clientGroup = client['Group']
+
             clientData = {
                 "_id": get_sha2(client['Name']),
                 "Name": client['Name'],
@@ -1017,18 +1033,17 @@ def update(
             else:
                 IP = defaultIP
                 clientIPInjectToNetworkDef[client['Name']] = defaultIP
-
-        clientRoute = ""
-        if ('Routes' in client):
-            clientRoute = client['Routes']
-        else:
-            clientRoute = serverInfo['Routes']
-
-        clientGroup = "Clients"
-        if ('Group' in client):
-            clientGroup = client['Group']
-
         if(WGmode):
+            clientRoute = ""
+            if ('Routes' in client):
+                clientRoute = client['Routes']
+            else:
+                clientRoute = serverInfo['Routes']
+
+            clientGroup = "Clients"
+            if ('Group' in client):
+                clientGroup = client['Group']
+
             clientData = {
                 "_id": get_sha2(client['Name']),
                 "Name": client['Name'],
@@ -1089,16 +1104,17 @@ def update(
     
     addNodeCustomProperties(g)
     addEdgeCustomProperties(g)
-    clientsControlLevel = getClientBasedControlLevel(networkDefiDictNoTouch)
+    clientsControlLevel = getClientBasedControlLevel(networkDefiDictNoTouch,WGmode)
     allClients =  networkDefiForGraph['WGNet']['Clients']
 
     mapName2Hostname = {}
     for client in allClients:
         mapName2Hostname[client['Name']] = client['Hostname']
-    mapName2Hostname [serverInfo['Name']] = serverInfo['Hostname']
+    if(WGmode):
+        mapName2Hostname [serverInfo['Name']] = serverInfo['Hostname']
  
     allGroupObject = updateGroupsObject(g,networkDefiDictNoTouch,groupsColor)
-    generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName)
+    generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName,WGMode=WGmode)
     # Check if the Nodes are removed from network definition
     resourcesAndClients = getResourcesAndClients(networkDefiDictNoTouch)
     # edges2Draw,edges2DrawID = checkRemovedNodeInEdge(resourcesAndClients,edgeToDrawName,edgeToDrawID)
