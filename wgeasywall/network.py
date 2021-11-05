@@ -1101,7 +1101,6 @@ def update(
     
     edgeToDrawName,groupsColor,edgeToDrawID = getEdges2Draw(graphFile,networkDefiDictNoTouch,oldNetworkDefiDict)
     g = pyyed.Graph()
-    
     addNodeCustomProperties(g)
     addEdgeCustomProperties(g)
     clientsControlLevel = getClientBasedControlLevel(networkDefiDictNoTouch,WGmode)
@@ -1112,6 +1111,8 @@ def update(
         mapName2Hostname[client['Name']] = client['Hostname']
     if(WGmode):
         mapName2Hostname [serverInfo['Name']] = serverInfo['Hostname']
+    else:
+        mapName2Hostname['FW'] = 'FW.{0}'.format(networkName)
  
     allGroupObject = updateGroupsObject(g,networkDefiDictNoTouch,groupsColor)
     generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients,graphName,WGMode=WGmode)

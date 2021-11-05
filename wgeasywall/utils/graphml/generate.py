@@ -143,6 +143,16 @@ def generateGraph(allGroupObject,netDict,graph,clients,graphName,mode='create',W
         serverRoutes = network['Server']['Routes']
         
         graph.add_node(serverProperties['Hostname'], shape="roundrectangle", font_style="bolditalic",shape_fill=networkColor,custom_properties=serverProperties)
+    else:
+        serverProperties = {
+            'IPAddress':'1.2.3.4',
+            'Type':'Server',
+            'NetworkName': networkName,
+            'Hostname': 'FW.{0}'.format(networkName),
+            'Name': 'FW'
+
+        }
+        graph.add_node(serverProperties['Hostname'], shape="roundrectangle", font_style="bolditalic",shape_fill=networkColor,custom_properties=serverProperties)
 
     for client in clients: # for client in network['Clients']
         clientProperties = client
