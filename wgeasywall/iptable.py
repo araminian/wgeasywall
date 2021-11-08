@@ -12,16 +12,45 @@ from wgeasywall.utils.ruleAsCode.generate import createRules, migrateToNFT
 from wgeasywall.utils.IPtable.iptable import generateIPTableScript
 app = typer.Typer()
 
+valid_completion_Mode = [
+    ("Smart", "The Smart Mode."),
+    ("Blacklist", "The Blacklist Mode."),
+    ("Whitelist", "The Whitelist Mode."),
+]
+
+
+def complete_Mode(incomplete: str):
+    completion = []
+    for name, help_text in valid_completion_Mode:
+        if name.startswith(incomplete):
+            completion_item = (name, help_text)
+            completion.append(completion_item)
+    return completion
+
 @app.command()
 def generate(
     graphFile: Path = typer.Option(...,"--graph-file",help="The GraphML file"),
     AppendMode: bool = typer.Option(False,"--append-mode",help="IF 'Enabled' the WGEasywall chain will be inserted at the first of FORWARD chain. IF not it will be added at the end"),
     ReturnMode: bool = typer.Option(False,"--return-mode",help="IF 'Enabled' if there is no rule match for packets, the packets don't back to FORWARD chain and will be matched with 'default-chain-policy'"),
-    DefaultChainPolicy: str = typer.Option("DROP","--default-chain-policy",help="The default policy for WGEasywall chain which be useful if the 'Return mode' is disabled")
-):
+    DefaultChainPolicy: str = typer.Option("DROP","--default-chain-policy",help="The default policy for WGEasywall chain which be useful if the 'Return mode' is disabled. It depends on the mode,1-'Smart' mode the default policy is 'DROP', 2-'Blacklist' mode the default policy is 'ACCEPT', 3-'Whitelist' mode the default policy is 'DROP'"),
+    Mode: str = typer.Option("Smart","--mode",help="The mode which defines which kind of actions should be used",autocompletion=complete_Mode),
+    blackListAction: str = typer.Option("DROP","--blacklist-action",help="By default 'DROP' action will be used in 'Blacklist' mode but a custom 'Reject' action can be set")
+):  
+    Modes = ['Smart','Blacklist','Whitelist']
+    if (Mode not in Modes):
+        typer.echo("ERROR: Unknown mode '{0}'".format(Mode),err=True)
+        raise typer.Exit(code=1)
     if not graphFile.is_file():
         typer.echo("ERROR: GraphML file can't be found!",err=True)
         raise typer.Exit(code=1)
+    
+    if(Mode=='Smart'):
+        DefaultChainPolicy = 'DROP'
+    elif(Mode=='Blacklist'):
+        DefaultChainPolicy = 'ACCEPT'
+    elif(Mode=='Whitelist'):
+        DefaultChainPolicy = 'DROP'
+
     nft = False
     # Parse graph
     graph = nx.read_graphml(graphFile)
@@ -125,6 +154,22 @@ def generate(
 
             for sRaaC in specialRaaCs:
 
+                sRaaCPart = sRaaC.split('->')
+                rules , action = sRaaCPart[0] , sRaaCPart[1]
+
+                action2replace = None
+                if(Mode=='Smart'):
+                    pass
+                elif(Mode=='Blacklist'):
+                    if('ACCEPT' in action):
+                        action2replace = "{0}()".format(blackListAction)
+                elif(Mode=='Whitelist'):
+                    if('DROP' in action or 'REJECT' in action):
+                        action2replace = "ACCEPT()"
+
+                if(action2replace != None):
+                    sRaaC = "{0}->{1}".format(rules,action2replace)
+                
                 ruleEnd = createRules(
             function=sRaaC,
             actionVersion='@latest',
@@ -150,7 +195,7 @@ def generate(
         # Normal Way
         functionArgument = generateFunctionSyntax(graph,edge,edgeN)
         
-        actionList = generateActionSyntax(graph,edge,edgeN)
+        actionList = generateActionSyntax(graph,edge,edgeN,mode=Mode,blacklistAction=blackListAction)
         
 
         errorFlag = False
@@ -192,4 +237,4 @@ def generate(
         print()
         print(iRule[1])
         print("-------------------")
-    generateIPTableScript(IPtableRules,AppendMode=AppendMode,ReturnMode=ReturnMode,DefaultAction=DefaultChainPolicy)
+    generateIPTableScript(IPtableRules,AppendMode=AppendMode,ReturnMode=ReturnMode,DefaultAction=DefaultChainPolicy,Mode=Mode)

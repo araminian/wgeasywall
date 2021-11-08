@@ -17,7 +17,7 @@ def generateRaaC(actionList,functionArgs,functionName='General'):
     return RaaCList
 
 
-def generateActionSyntax(graph,edgeID,edgeName,defaultAction=None):
+def generateActionSyntax(graph,edgeID,edgeName,mode,blacklistAction,defaultAction=None):
 
     srcEdgeID = edgeID[0]
     dstEdgeID = edgeID[1]
@@ -36,7 +36,26 @@ def generateActionSyntax(graph,edgeID,edgeName,defaultAction=None):
             return {"ErrorCode":"322","ErrorMsg":"Uncompatible actions {2} for edge {0} -> {1}".format(srcEdgeName,dstEdgeName,action)}
         elif (act in action):
             moreActionFlag = True
-    return action
+    
+    action2Return = []
+    if(mode=='Smart'):
+        return action
+    for act in action:
+        if(mode=='Blacklist'):
+            if('ACCEPT' in act):
+                action2Return.append("{0}()".format(blacklistAction))
+            elif('LOG' in act):
+                action2Return.append(act)
+            else:
+                action2Return.append(act)
+        elif(mode=='Whitelist'):
+            if('DROP' in act or 'REJECT' in act):
+                action2Return.append('ACCEPT()')
+            elif('LOG' in act):
+                action2Return.append(act)
+            else:
+                action2Return.append(act)
+    return action2Return
 
 def generateFunctionSyntax(graph,edgeID,edgeName):
 

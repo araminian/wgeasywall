@@ -1,4 +1,4 @@
-def generateIPTableScript(IPTableRules,DefaultAction='DROP',AppendMode=False,ReturnMode=False):
+def generateIPTableScript(IPTableRules,DefaultAction='DROP',AppendMode=False,ReturnMode=False,Mode='Smart'):
 
     fileName = '02-WGEasyWall-IPTable.sh'
     with open ( fileName, 'w') as rsh:
