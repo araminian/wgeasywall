@@ -34,11 +34,16 @@ def generate(
     ReturnMode: bool = typer.Option(False,"--return-mode",help="IF 'Enabled' if there is no rule match for packets, the packets don't back to FORWARD chain and will be matched with 'default-chain-policy'"),
     DefaultChainPolicy: str = typer.Option("DROP","--default-chain-policy",help="The default policy for WGEasywall chain which be useful if the 'Return mode' is disabled. It depends on the mode,1-'Smart' mode the default policy is 'DROP', 2-'Blacklist' mode the default policy is 'ACCEPT', 3-'Whitelist' mode the default policy is 'DROP'"),
     Mode: str = typer.Option("Smart","--mode",help="The mode which defines which kind of actions should be used",autocompletion=complete_Mode),
-    blackListAction: str = typer.Option("DROP","--blacklist-action",help="By default 'DROP' action will be used in 'Blacklist' mode but a custom 'Reject' action can be set")
+    blackListAction: str = typer.Option("DROP","--blacklist-action",help="By default 'DROP' action will be used in 'Blacklist' mode but a custom 'Reject' action can be set"),
+    LogMode: str = typer.Option("DROP","--log-mode",help="Enable log mode to generate a log rule for each rule. 4 Modes => 1-ACCEPT: Log all accepted traffic, 2-DROP: Log all rejected or dropped traffic, 3-ALL: Log all rejected,dropped and accepted trrafic, 4-OFF: No Logging."),
+    LogPrefix: str = typer.Option("WGEasywall","--log-prefix",help="Prefix log messages with the specified prefix; up to 29 letters long"),
+    LogLevel: int = typer.Option(4,"--log-level",help="Level of logging")
 ):  
     Modes = ['Smart','Blacklist','Whitelist']
     if (Mode not in Modes):
         typer.echo("ERROR: Unknown mode '{0}'".format(Mode),err=True)
+        typer.echo("The valid modes are: {0}".format(' '.join(Modes)))
+
         raise typer.Exit(code=1)
     if not graphFile.is_file():
         typer.echo("ERROR: GraphML file can't be found!",err=True)
@@ -50,6 +55,12 @@ def generate(
         DefaultChainPolicy = 'ACCEPT'
     elif(Mode=='Whitelist'):
         DefaultChainPolicy = 'DROP'
+
+    LogModesList = ["DROP","ACCEPT","ALL","OFF"]
+    if (LogMode not in LogModesList):
+        typer.echo("ERROR: Unknown log mode '{0}'".format(LogMode),err=True)
+        typer.echo("The valid log modes are: {0}".format(' '.join(LogModesList)))
+        raise typer.Exit(code=1)
 
     nft = False
     # Parse graph
@@ -151,6 +162,29 @@ def generate(
 
             comment= "WGEasywall generated rule for edge from {0} to {1}".format(srcEdgeName.replace("::","-"),dstEdgeName.replace("::","-"))
             argumentsToInject['comment'] = "'{0}'".format(comment)
+            # a Log rule
+            specialRaaCsTemp = specialRaaCs.copy()
+            for sRaaC in specialRaaCsTemp:
+                if(LogMode =='OFF'):
+                    break
+                index = 0
+
+                sRaaCPart = sRaaC.split('->')
+                rules , action = sRaaCPart[0] , sRaaCPart[1]
+
+                if(LogMode == 'DROP' and ('DROP' in action or 'REJECT' in action)):
+                    logAction = "LOG(logLevel={0}:logPrefix={1})".format(LogLevel,LogPrefix)
+                    RaaCLog = "{0}->{1}".format(rules,logAction)
+                    specialRaaCs.insert(index,RaaCLog)
+                elif(LogMode == 'ACCEPT' and 'ACCEPT' in action):
+                    logAction = "LOG(logLevel={0}:logPrefix={1})".format(LogLevel,LogPrefix)
+                    RaaCLog = "{0}->{1}".format(rules,logAction)
+                    specialRaaCs.insert(index,RaaCLog)
+                elif(LogMode=='ALL' and 'LOG' not in action):
+                    logAction = "LOG(logLevel={0}:logPrefix={1})".format(LogLevel,LogPrefix)
+                    RaaCLog = "{0}->{1}".format(rules,logAction)
+                    specialRaaCs.insert(index,RaaCLog)
+                index = index + 1
 
             for sRaaC in specialRaaCs:
 
@@ -210,7 +244,31 @@ def generate(
             continue
 
         RaaCList = generateRaaC(actionList,functionArgument)
-                
+
+        RaaCListTemp = RaaCList.copy()
+
+        for sRaaC in RaaCListTemp:
+            if(LogMode =='OFF'):
+                break
+            index = 0
+            
+            sRaaCPart = sRaaC.split('->')
+            rules , action = sRaaCPart[0] , sRaaCPart[1]
+
+            if(LogMode == 'DROP' and ('DROP' in action or 'REJECT' in action)):
+                logAction = "LOG(logLevel={0}:logPrefix={1})".format(LogLevel,LogPrefix)
+                RaaCLog = "{0}->{1}".format(rules,logAction)
+                RaaCList.insert(index,RaaCLog)
+            elif(LogMode == 'ACCEPT' and 'ACCEPT' in action):
+                logAction = "LOG(logLevel={0}:logPrefix={1})".format(LogLevel,LogPrefix)
+                RaaCLog = "{0}->{1}".format(rules,logAction)
+                RaaCList.insert(index,RaaCLog)
+            elif(LogMode=='ALL' and 'LOG' not in action):
+                logAction = "LOG(logLevel={0}:logPrefix={1})".format(LogLevel,LogPrefix)
+                RaaCLog = "{0}->{1}".format(rules,logAction)
+                RaaCList.insert(index,RaaCLog)
+            index = index + 1
+      
         for generatedRule in RaaCList:
 
             ruleEnd = createRules(
