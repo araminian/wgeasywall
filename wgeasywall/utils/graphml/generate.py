@@ -11,7 +11,7 @@ def readNetDefination(filePath) -> dict:
     return data
 
 def getRandomColor():
-    r = lambda: random.randint(0,255)
+    r = lambda: random.randint(105,255)
     color = ('#%02X%02X%02X' % (r(),r(),r()))
     return color
 

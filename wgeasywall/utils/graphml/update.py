@@ -4,7 +4,7 @@ import wgeasywall.utils.graphml.parser as parser
 import wgeasywall.utils.parse.diffdetector as diffdetector
 
 def getRandomColor():
-    r = lambda: random.randint(0,255)
+    r = lambda: random.randint(105,255)
     color = ('#%02X%02X%02X' % (r(),r(),r()))
     return color
 
