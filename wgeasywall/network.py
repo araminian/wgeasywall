@@ -22,7 +22,6 @@ from wgeasywall.utils.mongo.gridfsmongo import *
 from wgeasywall.utils.graphml.generate import *
 import copy , string
 from coolname import generate_slug
-from wgeasywall.utils.wireguard.query import getInitilizedNetwork
 from wgeasywall.utils.parse.diffdetector import *
 from wgeasywall.utils.wireguard.query import *
 from wgeasywall.view import network_definition, server, subnet_report
@@ -226,7 +225,7 @@ def linter(networkDefiDict,WGMode):
 
 
 @app.command()
-def initilize(
+def initialize(
 networkFile: Path = typer.Option(...,"--network-file",help="The network definition file"),
 keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
 graphName: str = typer.Option(None,"--graph-file-name",help="The generated GraphML file name. Default: Network Name"),
@@ -234,7 +233,7 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
 ):
 
     """
-    Initilize WireGuard Networks from the Network Definition file
+    initialize WireGuard Networks from the Network Definition file
     """
     
     if not networkFile.is_file():
@@ -257,8 +256,8 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
             raise typer.Exit(code=1)
         
         networkInit = list(queryNetwork['Enteries'])
-        if ( len(list(networkInit)) > 0 and networkInit[0]['initilized'] ):
-            typer.echo("ERROR: The network {0} was initilized and can't be initilized again.".format(networkName))
+        if ( len(list(networkInit)) > 0 and networkInit[0]['initialized'] ):
+            typer.echo("ERROR: The network {0} was initialized and can't be initialized again.".format(networkName))
             raise typer.Exit(code=1)
 
     # Lint
@@ -293,7 +292,7 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
 
         # If key is not found return
         if (keysNotSet):
-            typer.echo('Initilization Fail!')
+            typer.echo('Initialization Fail!')
             raise typer.Exit(code=1)
 
     # Network Part
@@ -363,14 +362,14 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
         serverInfo['PrivateKey'] = serverKey[0]
         addResult = add_entry_one(database_name=networkName,table_name='server',data=serverInfo)
         if (type(addResult) == dict and 'ErrorCode' in addResult):
-            typer.echo("ERORR: Can't connect to database and initilize network")
+            typer.echo("ERORR: Can't connect to database and initialize network")
             raise typer.Exit(code=1)
         
         # ADD ALL to DATABASE
         add_entry_multiple(database_name=networkName,table_name='freeIP',data=freeIPLIST)
         addResult = add_entry_one(database_name=networkName,table_name='subnet',data=CIDRData)
         if (type(addResult) == dict and 'ErrorCode' in addResult):
-            typer.echo("ERORR: Can't connect to database and initilize network")
+            typer.echo("ERORR: Can't connect to database and initialize network")
             raise typer.Exit(code=1)
         
         typer.echo("IP-Assigner setup done.")
@@ -402,7 +401,7 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
     allGroupObject = generateGroupsObject(g,networkDefiDictNoTouch)
     generateGraph(allGroupObject,networkDefiDictNoTouch,g,allClients2addGraph,graphName,WGMode=WGmode)
     if(WGmode):
-        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':CIDR})
+        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initialized':True, 'cidr':CIDR})
     exportGraphFile(g,graphName)
 
     # Upload Network File to DataBase
@@ -458,14 +457,14 @@ def update(
     networkNameNoTouch = networkName
 
     if (WGmode):
-        isInitilized = isNetworkInitilized(networkName)
-        if(type(isInitilized) == dict):
-            if(isInitilized['ErrorCode'] == '900'):
-                typer.echo(isInitilized['ErrorMsg'])
+        isInitialized = isNetworkInitialized(networkName)
+        if(type(isInitialized) == dict):
+            if(isInitialized['ErrorCode'] == '900'):
+                typer.echo(isInitialized['ErrorMsg'])
                 typer.echo("Can't update the network {0} which is not initialized yet".format(networkName))
                 raise typer.Exit(code=1)
             else:
-                typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+                typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
                 raise typer.Exit(code=1)
 
         # GET OLD Network Definition
@@ -478,7 +477,7 @@ def update(
     if (graphDryRun):
         networkName = "{0}-dry".format(networkName)
         copy_db(srcName=networkNameNoTouch,targetName=networkName)
-        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initilized':True, 'cidr':networkDefiDict['WGNet']['Subnet']})
+        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(networkName),'network':networkName,'initialized':True, 'cidr':networkDefiDict['WGNet']['Subnet']})
 
     # Detect Difference between OLD and NEW in Server Settings 
     if(WGmode):
@@ -846,7 +845,7 @@ def update(
         newInitValue = { "$set": { "cidr": newCIDR } }
         resultUpadte = update_one_abstract(database_name='Networks',table_name='init',query=networkQuery,newvalue=newInitValue)
         if (type(resultUpadte) == dict and 'ErrorCode' in resultUpadte):
-            typer.echo("ERORR: Can't connect to database and initilize network")
+            typer.echo("ERORR: Can't connect to database and initialize network")
             raise typer.Exit(code=1)
         
         #### Update Subnet table
@@ -1146,26 +1145,26 @@ def clone(
     keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients")
 ):
 
-    # Check if the src network is already initilized 
-    isInitilized = isNetworkInitilized(srcNetwork)
-    if(type(isInitilized) == dict):
-        if(isInitilized['ErrorCode'] == '900'):
-            typer.echo(isInitilized['ErrorMsg'])
+    # Check if the src network is already initialized 
+    isInitialized = isNetworkInitialized(srcNetwork)
+    if(type(isInitialized) == dict):
+        if(isInitialized['ErrorCode'] == '900'):
+            typer.echo(isInitialized['ErrorMsg'])
             raise typer.Exit(code=1)
         else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
             raise typer.Exit(code=1)
     
-    # Check if the dst network is already initilized!
-    isInitilized = isNetworkInitilized(dstNetwork)
+    # Check if the dst network is already initialized!
+    isInitialized = isNetworkInitialized(dstNetwork)
     dstNetworkInit = False
-    if(type(isInitilized) == dict):
-        if(isInitilized['ErrorCode'] == '900'):
+    if(type(isInitialized) == dict):
+        if(isInitialized['ErrorCode'] == '900'):
             dstNetworkInit = True
         else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
             raise typer.Exit(code=1)
-    # TODO : Find Typo initilized -> initialized
+    # TODO : Find Typo initialized -> initialized
     if not dstNetworkInit:
         typer.echo("ERROR: The destinition network {0} is already initialized and can't be used as destinition network.".format(dstNetwork))
         raise typer.Exit(code=1)
@@ -1178,7 +1177,7 @@ def clone(
 
         ## Copy DB and init 
         copy_db(srcNetwork,dstNetwork)
-        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(dstNetwork),'network':dstNetwork,'initilized':True, 'cidr':latestNetworkDefiDict['WGNet']['Subnet']})
+        add_entry_one(database_name='Networks',table_name='init',data={'_id':get_sha2(dstNetwork),'network':dstNetwork,'initialized':True, 'cidr':latestNetworkDefiDict['WGNet']['Subnet']})
 
 
         ## update the network name to dst network
@@ -1217,7 +1216,7 @@ def clone(
             yaml.dump(NetworkDefiDict, outfile, default_flow_style=False)
         
         typer.echo("Start clonning and initialization ....")
-        initilize(networkFile=Path(latestFileName),
+        initialize(networkFile=Path(latestFileName),
         keyDirectory=keyDirectory,graphName=dstNetwork)
         os.remove(latestFileName)
     
@@ -1225,14 +1224,14 @@ def clone(
 def remove(
     Network: str = typer.Option(...,"--network",help="The network which should be deleted")
 ):
-    # Check if the src network is already initilized 
-    isInitilized = isNetworkInitilized(Network)
-    if(type(isInitilized) == dict):
-        if(isInitilized['ErrorCode'] == '900'):
-            typer.echo(isInitilized['ErrorMsg'])
+    # Check if the src network is already initialized 
+    isInitialized = isNetworkInitialized(Network)
+    if(type(isInitialized) == dict):
+        if(isInitialized['ErrorCode'] == '900'):
+            typer.echo(isInitialized['ErrorMsg'])
             raise typer.Exit(code=1)
         else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
             raise typer.Exit(code=1)
     
     typer.echo("Start removing network {0} ... ".format(Network))
@@ -1270,14 +1269,14 @@ def generate_hosts_file(
     Network: str = typer.Option(...,"--network",help="The network which hosts file will be generated for")
 ):
     
-    # Check if the src network is already initilized 
-    isInitilized = isNetworkInitilized(Network)
-    if(type(isInitilized) == dict):
-        if(isInitilized['ErrorCode'] == '900'):
-            typer.echo(isInitilized['ErrorMsg'])
+    # Check if the src network is already initialized 
+    isInitialized = isNetworkInitialized(Network)
+    if(type(isInitialized) == dict):
+        if(isInitialized['ErrorCode'] == '900'):
+            typer.echo(isInitialized['ErrorMsg'])
             raise typer.Exit(code=1)
         else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
             raise typer.Exit(code=1)
 
 

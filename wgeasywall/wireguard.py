@@ -87,7 +87,7 @@ def clientGenerate(clients,server,subnet,outputDir):
 
 @app.command()
 def generate(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initilized"),
+    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
     all: bool = typer.Option(False,"--all",help="Re-generate all configuration again. True or False"),
     clients2Config: str = typer.Option(None,"--clients",help="A list of clients which configurations will be generated for them"),
     outputDir: Path = typer.Option(...,"--output-dir",help="The directory which the generated configuration will be saved"),
@@ -96,13 +96,13 @@ def generate(
     """
     Generate or regenerate wireguard configuration
     """
-    isInitilized = isNetworkInitilized(networkName)
-    if(type(isInitilized) == dict):
-        if(isInitilized['ErrorCode'] == '900'):
-            typer.echo(isInitilized['ErrorMsg'])
+    isInitialized = isNetworkInitialized(networkName)
+    if(type(isInitialized) == dict):
+        if(isInitialized['ErrorCode'] == '900'):
+            typer.echo(isInitialized['ErrorMsg'])
             raise typer.Exit(code=1)
         else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
             raise typer.Exit(code=1)
     # all take priority   
     if (all):
@@ -199,7 +199,7 @@ def generate(
 
 @app.command()
 def key_generate(
-networkName: str = typer.Option(...,"--network-name",help="The network name which is initilized"),
+networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
 all: bool = typer.Option(False,"--all",help="Uodate all keys. True or False"),
 clients2Config: str = typer.Option(None,"--clients-list",help="A list of clients which their keys should be updated"),
 outputDir: Optional[Path] = typer.Option(None,"--output-dir",help="The directory which the generated configuration will be saved"),
@@ -211,13 +211,13 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
     Update server and clients keys
     """
 
-    isInitilized = isNetworkInitilized(networkName)
-    if(type(isInitilized) == dict):
-        if(isInitilized['ErrorCode'] == '900'):
-            typer.echo(isInitilized['ErrorMsg'])
+    isInitialized = isNetworkInitialized(networkName)
+    if(type(isInitialized) == dict):
+        if(isInitialized['ErrorCode'] == '900'):
+            typer.echo(isInitialized['ErrorMsg'])
             raise typer.Exit(code=1)
         else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitilized))
+            typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
             raise typer.Exit(code=1)
     # all take priority   
     if (all):

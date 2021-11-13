@@ -22,7 +22,7 @@ app.add_typer(raac,name='RaaC',help="Reporting Rule as a Code")
 def networks():
 
     """
-    Get all Initilized network 
+    Get all Initialized network 
     """
 
     network = get_all_entries(database_name='Networks',table_name='init')
@@ -34,7 +34,7 @@ def networks():
     networkInit = list(network['Enteries'])
 
     if (len(networkInit) == 0 ):
-        typer.echo("No initilized network have been found.")
+        typer.echo("No initialized network have been found.")
 
     net = []
     for n in networkInit:
@@ -45,7 +45,7 @@ def networks():
 
 @app.command()
 def subnet_report(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initilized")
+    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized")
 ):
     
     """
@@ -61,7 +61,7 @@ def subnet_report(
     networkInit = list(network['Enteries'])
 
     if (len(networkInit) == 0 ):
-        typer.echo("The network {0} is not initilized.".format(networkName))
+        typer.echo("The network {0} is not initialized.".format(networkName))
     
 
     subnet = get_all_entries(database_name=networkName,table_name='subnet')
@@ -110,7 +110,7 @@ def subnet_report(
 
 @app.command()
 def network_definition(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initilized"),
+    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
     networkDefinitionName: str = typer.Option(None,"--network-definition-name",help="The unique name of network definition file. Use @latest to get the latest network definition")
 ):
 
@@ -129,7 +129,7 @@ def network_definition(
     networkInit = list(network['Enteries'])
 
     if (len(networkInit) == 0 ):
-        typer.echo("The network {0} is not initilized.".format(networkName))
+        typer.echo("The network {0} is not initialized.".format(networkName))
         raise typer.Exit(code=0)
     query = {'filename':'{0}.yaml'.format(networkName)}
     files = findAbstract(networkName,'netdef',query=query)
@@ -164,12 +164,12 @@ def network_definition(
 
 @app.command()
 def clients(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initilized"),
+    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
     verbose: int = typer.Option(0,"--verbose","-v",count=True)
 ):
 
     """
-    Get Clients in the initilized network
+    Get Clients in the initialized network
 
     -v : Get Name, Hostname ,IPAddress ,Group
 
@@ -188,7 +188,7 @@ def clients(
     networkInit = list(network['Enteries'])
 
     if (len(networkInit) == 0 ):
-        typer.echo("The network {0} is not initilized.".format(networkName))
+        typer.echo("The network {0} is not initialized.".format(networkName))
         raise typer.Exit(code=0)
     
     clients = get_all_entries(database_name=networkName,table_name='clients')
@@ -234,11 +234,11 @@ def clients(
 
 @app.command()
 def server(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initilized"),
+    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
     verbose: int = typer.Option(0,"--verbose","-v",count=True)
 ):
     """
-    Get Server in the initilized network
+    Get Server in the initialized network
 
     -v : Get Name, Hostname ,IPAddress ,PublicIPAddress
 
@@ -257,7 +257,7 @@ def server(
     networkInit = list(network['Enteries'])
 
     if (len(networkInit) == 0 ):
-        typer.echo("The network {0} is not initilized.".format(networkName))
+        typer.echo("The network {0} is not initialized.".format(networkName))
         raise typer.Exit(code=0)
     
     server = get_all_entries(database_name=networkName,table_name='server')

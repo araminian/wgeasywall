@@ -16,7 +16,7 @@ def getClientsControlLevel(clients):
     return (controlled,noControlled)
 
 
-def getInitilizedNetwork():
+def getInitializedNetwork():
 
     network = get_all_entries(database_name='Networks',table_name='init')
     if (type(network) == dict and 'ErrorCode' in network):
@@ -27,7 +27,7 @@ def getInitilizedNetwork():
 
 
 
-def isNetworkInitilized(networkName):
+def isNetworkInitialized(networkName):
     queryNetwork = {"_id": get_sha2(networkName)}
     network = query_abstract(database_name='Networks',table_name='init',query=queryNetwork)
 
@@ -43,9 +43,9 @@ def isNetworkInitilized(networkName):
 
 def getClients(networkName):
 
-    isInitilized = isNetworkInitilized(networkName)
-    if(type(isInitilized) == dict):
-        return isInitilized
+    isInitialized = isNetworkInitialized(networkName)
+    if(type(isInitialized) == dict):
+        return isInitialized
     
     clients = get_all_entries(database_name=networkName,table_name='clients')
     if (type(clients) == dict and 'ErrorCode' in clients):
@@ -57,9 +57,9 @@ def getClients(networkName):
 
 def getServer(networkName):
 
-    isInitilized = isNetworkInitilized(networkName)
-    if(type(isInitilized) == dict):
-        return isInitilized
+    isInitialized = isNetworkInitialized(networkName)
+    if(type(isInitialized) == dict):
+        return isInitialized
 
     server = get_all_entries(database_name=networkName,table_name='server')
     if (type(server) == dict and 'ErrorCode' in server):
@@ -70,9 +70,9 @@ def getServer(networkName):
 
 def getSubnet(networkName):
     
-    isInitilized = isNetworkInitilized(networkName)
-    if(type(isInitilized) == dict):
-        return isInitilized
+    isInitialized = isNetworkInitialized(networkName)
+    if(type(isInitialized) == dict):
+        return isInitialized
     
     subnet = get_all_entries(database_name=networkName,table_name='subnet')
     if (type(subnet) == dict and 'ErrorCode' in subnet):

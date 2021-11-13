@@ -140,7 +140,7 @@ def generate_rule(
     if (type(ruleEnd) == dict):
         typer.echo("ERROR: {0}".format(ruleEnd['ErrorMsg']))
         raise typer.Exit(code=1)
-    
+    # ruleEnd is List of List
     for rule in ruleEnd:
         rule2show = ' '.join(rule)
         if (not nft):
