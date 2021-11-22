@@ -95,6 +95,27 @@ def generate(
 ):
     """
     Generate or regenerate wireguard configuration
+
+    ------------
+
+    Example:
+
+    # Generate wireguard configuration files for all nodes in 'WGNet1' and store it '/home/wgeasywall/wgconf' directroy
+
+    wgeasywall wireguard generate --network-name WGNet1 --all --output-dir /home/wgeasywall/wgconf
+
+    ---
+
+    # Generates 'Client1 and Client2' and 'server' wireguard configuration file
+
+    wgeasywall wireguard generate --network-name WGNet1 --clients Client1,Client2 --server --output-dir /home/wgeasywall/wgconf
+
+    ---
+
+    # Only generate 'server' wireguard configuration file 
+
+    wgeasywall wireguard generate --network-name WGNet1 --server --output-dir /home/wgeasywall/wgconf
+
     """
     isInitialized = isNetworkInitialized(networkName)
     if(type(isInitialized) == dict):
@@ -102,7 +123,7 @@ def generate(
             typer.echo(isInitialized['ErrorMsg'])
             raise typer.Exit(code=1)
         else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
+            typer.echo("ERROR: Can't connect to the database. {0}".format(isInitialized),err=True)
             raise typer.Exit(code=1)
     # all take priority   
     if (all):
@@ -117,15 +138,15 @@ def generate(
             subnet = getSubnet(networkName)
 
             if (type(clients) == dict and 'ErrorCode' in clients):
-                typer.echo("ERROR: Can't connect to database to get clients. {0}".format(clients))
+                typer.echo("ERROR: Can't connect to the database to get clients. {0}".format(clients),err=True)
                 raise typer.Exit(code=1)
             
             if (type(server) == dict and 'ErrorCode' in server):
-                typer.echo("ERROR: Can't connect to database to get server. {0}".format(server))
+                typer.echo("ERROR: Can't connect to the database to get server. {0}".format(server),err=True)
                 raise typer.Exit(code=1)
             
             if (type(subnet) == dict and 'ErrorCode' in subnet):
-                typer.echo("ERROR: Can't connect to database to subnet. {0}".format(server))
+                typer.echo("ERROR: Can't connect to the database to subnet. {0}".format(server),err=True)
                 raise typer.Exit(code=1)
 
             # Generate Server Configuration
@@ -148,15 +169,15 @@ def generate(
         subnet = getSubnet(networkName)
 
         if (type(clients) == dict and 'ErrorCode' in clients):
-            typer.echo("ERROR: Can't connect to database to get clients. {0}".format(clients))
+            typer.echo("ERROR: Can't connect to the database to get clients. {0}".format(clients),err=True)
             raise typer.Exit(code=1)
             
         if (type(server) == dict and 'ErrorCode' in server):
-            typer.echo("ERROR: Can't connect to database to get server. {0}".format(server))
+            typer.echo("ERROR: Can't connect to the database to get server. {0}".format(server),err=True)
             raise typer.Exit(code=1)
             
         if (type(subnet) == dict and 'ErrorCode' in subnet):
-            typer.echo("ERROR: Can't connect to database to subnet. {0}".format(server))
+            typer.echo("ERROR: Can't connect to the database to subnet. {0}".format(server),err=True)
             raise typer.Exit(code=1)
 
         # Generate Server Configuration
@@ -170,12 +191,12 @@ def generate(
         for client in client2Generate:
             queryResult = query_abstract(database_name=networkName,table_name='clients',query={'_id':get_sha2(client)})
             if ('ErrorCode' in queryResult):
-                typer.echo("ERROR: Can't connect to the database. {0}".format(queryResult))
+                typer.echo("ERROR: Can't connect to the database. {0}".format(queryResult),err=True)
                 raise typer.Exit(code=1)
                 
             clientQueryObject = list(queryResult['Enteries'])
             if len(clientQueryObject) == 0:
-                typer.echo("ERROR: Client {0} doesn't exist in the network".format(client))
+                typer.echo("ERROR: Client {0} doesn't exist in the network".format(client),err=True)
                 raise typer.Exit(code=1)
             clients.append(clientQueryObject[0])
         
@@ -184,11 +205,11 @@ def generate(
 
         
         if (type(server) == dict and 'ErrorCode' in server):
-            typer.echo("ERROR: Can't connect to database to get server. {0}".format(server))
+            typer.echo("ERROR: Can't connect to the database to get server. {0}".format(server),err=True)
             raise typer.Exit(code=1)
             
         if (type(subnet) == dict and 'ErrorCode' in subnet):
-            typer.echo("ERROR: Can't connect to database to subnet. {0}".format(server))
+            typer.echo("ERROR: Can't connect to the database to subnet. {0}".format(server),err=True)
             raise typer.Exit(code=1)
 
         clientUnControll = clientGenerate(clients,server,subnet,outputDir)
@@ -200,7 +221,7 @@ def generate(
 @app.command()
 def key_generate(
 networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
-all: bool = typer.Option(False,"--all",help="Uodate all keys. True or False"),
+all: bool = typer.Option(False,"--all",help="Update all keys. True or False"),
 clients2Config: str = typer.Option(None,"--clients-list",help="A list of clients which their keys should be updated"),
 outputDir: Optional[Path] = typer.Option(None,"--output-dir",help="The directory which the generated configuration will be saved"),
 isServer: bool = typer.Option(False,"--server",help="Update server key"),
@@ -208,7 +229,27 @@ isClients: bool = typer.Option(False,"--clients",help="Update all clients keys")
 keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
 ):
     """
-    Update server and clients keys
+    Update server and clients keys and regenerate wireguard configuration files
+
+    ------------
+
+    Example:
+
+    # Update clients keys and not regenerate wireguard configuration file
+
+    wgeasywall wireguard key-generate --network-name WGNet1 --clients --keys-dir /home/wgeasywall/keysdir
+
+    ---
+
+    # Update clients keys and regenerate wireguard configuration files
+    wgeasywall wireguard key-generate --network-name WGNet1 --clients --keys-dir /home/wgeasywall/keysdir --output-dir /home/wgeasywall/wgconf
+
+    ---
+
+    # Update only server keys and regenerate all wireguard configuration file
+
+    wgeasywall wireguard key-generate --network-name WGNet1 --server --output-dir /home/wgeasywall/wgconf
+
     """
 
     isInitialized = isNetworkInitialized(networkName)
@@ -217,7 +258,7 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
             typer.echo(isInitialized['ErrorMsg'])
             raise typer.Exit(code=1)
         else:
-            typer.echo("ERROR: Can't connect to database. {0}".format(isInitialized))
+            typer.echo("ERROR: Can't connect to the database. {0}".format(isInitialized),err=True)
             raise typer.Exit(code=1)
     # all take priority   
     if (all):
@@ -232,21 +273,21 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
             subnet = getSubnet(networkName)
 
             if (type(clients) == dict and 'ErrorCode' in clients):
-                typer.echo("ERROR: Can't connect to database to get clients. {0}".format(clients))
+                typer.echo("ERROR: Can't connect to the database to get clients. {0}".format(clients),err=True)
                 raise typer.Exit(code=1)
             
             if (type(server) == dict and 'ErrorCode' in server):
-                typer.echo("ERROR: Can't connect to database to get server. {0}".format(server))
+                typer.echo("ERROR: Can't connect to the database to get server. {0}".format(server),err=True)
                 raise typer.Exit(code=1)
             
             if (type(subnet) == dict and 'ErrorCode' in subnet):
-                typer.echo("ERROR: Can't connect to database to subnet. {0}".format(server))
+                typer.echo("ERROR: Can't connect to the database to subnet. {0}".format(server),err=True)
                 raise typer.Exit(code=1)
 
             clientControlled, clientNotControlled = getClientsControlLevel(clients)
 
             if (len(clientNotControlled) > 0 and keyDirectory == None):
-                typer.echo("ERORR: There is more than one uncontrolled client , keys directory should be specified!")
+                typer.echo("ERORR: There is more than one uncontrolled client , keys directory should be specified!",err=True)
                 raise typer.Exit(code=1)
 
             # Clients Keys
@@ -255,7 +296,7 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
                 key = getFile(clientKeyPath)
 
                 if (type(key) == dict):
-                    typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
+                    typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client),err=True)
                     raise typer.Exit(code=1)
                 client['PublicKey'] = key
                 client['PrivateKey'] = ""
@@ -276,10 +317,10 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
             serverTable = get_collection(db_name=networkName,collection_name='server')
 
             if (type(clientTable) == dict and 'ErrorCode' in clientTable):
-                typer.echo("ERROR: Can't connect to database. {0}".format(clientTable))
+                typer.echo("ERROR: Can't connect to the database. {0}".format(clientTable),err=True)
                 raise typer.Exit(code=1)
             if (type(serverTable) == dict and 'ErrorCode' in serverTable):
-                typer.echo("ERROR: Can't connect to database. {0}".format(serverTable))
+                typer.echo("ERROR: Can't connect to the database. {0}".format(serverTable),err=True)
                 raise typer.Exit(code=1)
             
             clientTable.drop()
@@ -312,15 +353,15 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
         subnet = getSubnet(networkName)
 
         if (type(clients) == dict and 'ErrorCode' in clients):
-            typer.echo("ERROR: Can't connect to database to get clients. {0}".format(clients))
+            typer.echo("ERROR: Can't connect to the database to get clients. {0}".format(clients),err=True)
             raise typer.Exit(code=1)
             
         if (type(server) == dict and 'ErrorCode' in server):
-            typer.echo("ERROR: Can't connect to database to get server. {0}".format(server))
+            typer.echo("ERROR: Can't connect to the database to get server. {0}".format(server),err=True)
             raise typer.Exit(code=1)
             
         if (type(subnet) == dict and 'ErrorCode' in subnet):
-            typer.echo("ERROR: Can't connect to database to subnet. {0}".format(server))
+            typer.echo("ERROR: Can't connect to the database to subnet. {0}".format(server),err=True)
             raise typer.Exit(code=1)
 
         # Server Key
@@ -330,7 +371,7 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
         
         serverTable = get_collection(db_name=networkName,collection_name='server')
         if (type(serverTable) == dict and 'ErrorCode' in serverTable):
-                typer.echo("ERROR: Can't connect to database. {0}".format(serverTable))
+                typer.echo("ERROR: Can't connect to the database. {0}".format(serverTable),err=True)
                 raise typer.Exit(code=1)
             
         serverTable.drop()
@@ -341,7 +382,7 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
         clientsName = []
         clients = getClients(networkName)
         if (type(clients) == dict and 'ErrorCode' in clients):
-            typer.echo("ERROR: Can't connect to database to get clients. {0}".format(clients))
+            typer.echo("ERROR: Can't connect to the database to get clients. {0}".format(clients),err=True)
             raise typer.Exit(code=1)
         for client in clients:
             clientsName.append(client['Name'])
@@ -361,7 +402,7 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
                 
             clientQueryObject = list(queryResult['Enteries'])
             if len(clientQueryObject) == 0:
-                typer.echo("ERROR: Client {0} doesn't exist in the network".format(client))
+                typer.echo("ERROR: Client {0} doesn't exist in the network".format(client),err=True)
                 raise typer.Exit(code=1)
             clients.append(clientQueryObject[0])
             clientsName.append(client)
@@ -372,13 +413,13 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
 
         
         if (type(server) == dict and 'ErrorCode' in server):
-            typer.echo("ERROR: Can't connect to database to get server. {0}".format(server))
+            typer.echo("ERROR: Can't connect to the database to get server. {0}".format(server),err=True)
             raise typer.Exit(code=1)
         if (type(subnet) == dict and 'ErrorCode' in subnet):
-            typer.echo("ERROR: Can't connect to database to subnet. {0}".format(server))
+            typer.echo("ERROR: Can't connect to the database to subnet. {0}".format(server),err=True)
             raise typer.Exit(code=1)
         if (type(clients) == dict and 'ErrorCode' in clients):
-            typer.echo("ERROR: Can't connect to database to get clients. {0}".format(clients))
+            typer.echo("ERROR: Can't connect to the database to get clients. {0}".format(clients),err=True)
             raise typer.Exit(code=1)
         
         clientControlled, clientNotControlled = getClientsControlLevel(clients)
@@ -392,7 +433,7 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
             clientNotControlledName.append(client['Name'])
         
         if (len(clientNotControlled) > 0 and keyDirectory == None):
-                typer.echo("ERORR: There is more than one uncontrolled client, keys directory should be specified!")
+                typer.echo("ERORR: There is more than one uncontrolled client, keys directory should be specified!",err=True)
                 raise typer.Exit(code=1)
 
         for client in allClients:
@@ -405,7 +446,7 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
                 key = getFile(clientKeyPath)
                 # TODO: Check before if the key file is exist or not ?!
                 if (type(key) == dict):
-                    typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client))
+                    typer.echo("ERROR: The key file '{0}.pub' for client: {0} can't be found!".format(client),err=True)
                     raise typer.Exit(code=1)
                 client['PublicKey'] = key
                 client['PrivateKey'] = ""
@@ -413,7 +454,7 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
         clientTable = get_collection(db_name=networkName,collection_name='clients')
 
         if (type(clientTable) == dict and 'ErrorCode' in clientTable):
-            typer.echo("ERROR: Can't connect to database. {0}".format(clientTable))
+            typer.echo("ERROR: Can't connect to the database. {0}".format(clientTable),err=True)
             raise typer.Exit(code=1)
             
         clientTable.drop()
@@ -454,12 +495,12 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
             for client in client2Generate:
                 queryResult = query_abstract(database_name=networkName,table_name='clients',query={'_id':get_sha2(client)})
                 if ('ErrorCode' in queryResult):
-                    typer.echo("ERROR: Can't connect to the database. {0}".format(queryResult))
+                    typer.echo("ERROR: Can't connect to the database. {0}".format(queryResult),err=True)
                     raise typer.Exit(code=1)
                     
                 clientQueryObject = list(queryResult['Enteries'])
                 if len(clientQueryObject) == 0:
-                    typer.echo("ERROR: Client {0} doesn't exist in the network".format(client))
+                    typer.echo("ERROR: Client {0} doesn't exist in the network".format(client),err=True)
                     raise typer.Exit(code=1)
                 clients.append(clientQueryObject[0])
             

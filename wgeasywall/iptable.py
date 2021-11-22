@@ -39,6 +39,15 @@ def generate(
     LogPrefix: str = typer.Option("WGEasywall","--log-prefix",help="Prefix log messages with the specified prefix; up to 29 letters long"),
     LogLevel: int = typer.Option(4,"--log-level",help="Level of logging")
 ):  
+    '''
+    Read GraphML file and generate scripts for configuring IPTables rules and IPSets
+
+    ------------
+
+    Example:
+
+    wgeasywall IPTables generate --graph-file network.graphml
+    '''
     Modes = ['Smart','Blacklist','Whitelist']
     if (Mode not in Modes):
         typer.echo("ERROR: Unknown mode '{0}'".format(Mode),err=True)

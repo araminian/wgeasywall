@@ -28,7 +28,7 @@ def networks():
     network = get_all_entries(database_name='Networks',table_name='init')
 
     if (type(network) == dict and 'ErrorCode' in network):
-        typer.echo("ERROR: Can't connect to the database.  {0}".format(network))
+        typer.echo("ERROR: Can't connect to the database.  {0}".format(network),err=True)
         raise typer.Exit(code=1)
 
     networkInit = list(network['Enteries'])
@@ -49,13 +49,13 @@ def subnet_report(
 ):
     
     """
-    Get full reports of subnet like FreeIPs,AssignedIPS,....
+    Get full reports of network's subnet like FreeIPs,AssignedIPS,....
     """
     queryNetwork = {"_id": get_sha2(networkName)}
     network = query_abstract(database_name='Networks',table_name='init',query=queryNetwork)
 
     if (type(network) == dict and 'ErrorCode' in network):
-        typer.echo("ERROR: Can't connect to the database.  {0}".format(network))
+        typer.echo("ERROR: Can't connect to the database.  {0}".format(network),err=True)
         raise typer.Exit(code=1)
 
     networkInit = list(network['Enteries'])
@@ -66,7 +66,7 @@ def subnet_report(
 
     subnet = get_all_entries(database_name=networkName,table_name='subnet')
     if (type(subnet) == dict and 'ErrorCode' in subnet):
-        typer.echo("ERROR: Can't connect to the database.  {0}".format(subnet))
+        typer.echo("ERROR: Can't connect to the database.  {0}".format(subnet),err=True)
         raise typer.Exit(code=1)
 
     subnetObject = list(subnet['Enteries'])[0]
@@ -123,7 +123,7 @@ def network_definition(
     network = query_abstract(database_name='Networks',table_name='init',query=queryNetwork)
 
     if (type(network) == dict and 'ErrorCode' in network):
-        typer.echo("ERROR: Can't connect to the database.  {0}".format(network))
+        typer.echo("ERROR: Can't connect to the database.  {0}".format(network),err=True)
         raise typer.Exit(code=1)
 
     networkInit = list(network['Enteries'])
@@ -182,7 +182,7 @@ def clients(
     network = query_abstract(database_name='Networks',table_name='init',query=queryNetwork)
 
     if (type(network) == dict and 'ErrorCode' in network):
-        typer.echo("ERROR: Can't connect to the database.  {0}".format(network))
+        typer.echo("ERROR: Can't connect to the database.  {0}".format(network),err=True)
         raise typer.Exit(code=1)
 
     networkInit = list(network['Enteries'])
@@ -193,7 +193,7 @@ def clients(
     
     clients = get_all_entries(database_name=networkName,table_name='clients')
     if (type(clients) == dict and 'ErrorCode' in clients):
-        typer.echo("ERROR: Can't connect to the database.  {0}".format(clients))
+        typer.echo("ERROR: Can't connect to the database.  {0}".format(clients),err=True)
         raise typer.Exit(code=1)
 
     clientList = list(clients['Enteries'])
@@ -251,7 +251,7 @@ def server(
     network = query_abstract(database_name='Networks',table_name='init',query=queryNetwork)
 
     if (type(network) == dict and 'ErrorCode' in network):
-        typer.echo("ERROR: Can't connect to the database.  {0}".format(network))
+        typer.echo("ERROR: Can't connect to the database.  {0}".format(network),err=True)
         raise typer.Exit(code=1)
 
     networkInit = list(network['Enteries'])
@@ -262,7 +262,7 @@ def server(
     
     server = get_all_entries(database_name=networkName,table_name='server')
     if (type(server) == dict and 'ErrorCode' in server):
-        typer.echo("ERROR: Can't connect to the database.  {0}".format(server))
+        typer.echo("ERROR: Can't connect to the database.  {0}".format(server),err=True)
         raise typer.Exit(code=1)
 
     serverObject = list(server['Enteries'])[0]
@@ -294,11 +294,34 @@ def action(
     action: str = typer.Option(None,"--action",help="The action name"),
     version: str = typer.Option(None,"--version",help="The version of action. Use @latest to get the latest"),
     all: bool = typer.Option(False,"--all",help="Use to get all actions in the database")
-):
+):  
+    '''
+    Get actions in the database or get action manifest file
+
+    ------------
+
+    Example:
+
+    # Get all actions
+
+    wgeasywall view RaaC action --all
+
+    ---
+
+    # Get lists of all versions of 'LOG' action in the database
+
+    wgeasywall RaaC action --action LOG
+
+    ---
+
+    # Get 'latest' action manifest file of 'LOG' action 
+
+    wgeasywall RaaC action --action LOG --version @latest
+    '''
     if(all):
         result = getAllInFS('RaaC','action')
         if (type(result) == dict and 'ErrorCode' in result):
-            typer.echo("ERROR: {0}".format(result['ErrorMsg']))
+            typer.echo("ERROR: {0}".format(result['ErrorMsg']),err=True)
             raise typer.Exit(code=1)
         tableData = []
         for act in result:
@@ -316,7 +339,7 @@ def action(
         files = findAbstract('RaaC','action',query=query)
 
         if(len(files) == 0):
-            typer.echo("ERROR: The Action '{0}' doesn't exist on the database.".format(action))
+            typer.echo("ERROR: The Action '{0}' doesn't exist on the database.".format(action),err=True)
             raise typer.Exit(code=1)
 
         tableData = []
@@ -331,7 +354,7 @@ def action(
         actionDefinition = extractActionDefinition(action=action,version=version)
 
         if (type(actionDefinition) == dict and 'ErrorCode' in actionDefinition):
-            typer.echo('ERROR: {0}'.format(actionDefinition['ErrorMsg']))
+            typer.echo('ERROR: {0}'.format(actionDefinition['ErrorMsg']),err=True)
             raise typer.Exit(code=1)
         
         actionMainBody = actionDefinition['Action']['Body']['Main']
@@ -352,11 +375,34 @@ def function(
     version: str = typer.Option(None,"--version",help="The version of function. Use @latest to get the latest"),
     all: bool = typer.Option(False,"--all",help="Use to get all functions in the database")
 ):
+    '''
+    Get functions in the database or get action manifest file
 
+    ------------
+
+    Example:
+
+    # Get all functions
+
+    wgeasywall view RaaC function --all
+
+    ---
+
+    # Get lists of all versions of 'conntrack' action in the database
+
+    wgeasywall RaaC function --action conntrack
+
+    ---
+
+    # Get 'latest' function manifest file of 'conntrack' action 
+
+    wgeasywall RaaC function --function conntrack --version @latest
+    '''
+    
     if(all):
         result = getAllInFS('RaaC','function')
         if (type(result) == dict and 'ErrorCode' in result):
-            typer.echo("ERROR: {0}".format(result['ErrorMsg']))
+            typer.echo("ERROR: {0}".format(result['ErrorMsg']),err=True)
             raise typer.Exit(code=1)
         tableData = []
         for func in result:
@@ -374,7 +420,7 @@ def function(
         files = findAbstract('RaaC','function',query=query)
 
         if(len(files) == 0):
-            typer.echo("ERROR: The Function '{0}' doesn't exist on the database.".format(function))
+            typer.echo("ERROR: The Function '{0}' doesn't exist on the database.".format(function),err=True)
             raise typer.Exit(code=1)
 
         tableData = []
@@ -389,7 +435,7 @@ def function(
         functionDefinition = extractFunctionDefinition(function=function,version=version)
 
         if (type(functionDefinition) == dict and 'ErrorCode' in functionDefinition):
-            typer.echo('ERROR: {0}'.format(functionDefinition['ErrorMsg']))
+            typer.echo('ERROR: {0}'.format(functionDefinition['ErrorMsg']),err=True)
             raise typer.Exit(code=1)
 
         typer.echo("Function Syntax:\n")

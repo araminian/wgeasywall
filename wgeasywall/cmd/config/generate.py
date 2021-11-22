@@ -15,6 +15,12 @@ def database(
 ):
     """
     Generate MongoDB configuration file that need to access database in the ~/.wgeasywall location
+
+    ------------
+    
+    Example:
+
+    wgeasywall config generate database --mongodb-address 127.0.0.1 --mongodb-user wgeasywall --mongodb-password wgeasywall
     """
     config = {}
     config["MongoDB"] = {}
