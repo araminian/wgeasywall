@@ -1,0 +1,7 @@
+Action:
+  Name: DROP
+  Version: beta
+  Body:
+    Main: "-j DROP"
+    Arguments: {}
+    Variables: {}

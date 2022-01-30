@@ -1,0 +1,17 @@
+Action:
+  Name: LOG
+  Version: beta
+  Body:
+    Main: "-j LOG"
+    Arguments:
+      logLevel:
+        Definition: "--log-level <log_level>"
+        Optional: true
+      logPrefix:
+        Definition: "--log-prefix <log_prefix>"
+        Optional: true
+    Variables:
+      log_level:
+        Type: Single
+      log_prefix:
+        Type: Single

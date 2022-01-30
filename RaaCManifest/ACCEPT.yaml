@@ -1,0 +1,8 @@
+# ACCEPT()
+Action:
+  Name: ACCEPT
+  Version: beta
+  Body:
+    Main: "-j ACCEPT"
+    Arguments: {}
+    Variables: {}

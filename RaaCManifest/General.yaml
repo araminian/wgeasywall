@@ -1,0 +1,43 @@
+#general(protocol=tcp)
+#general(protocol=tcp:srcIP=1.1.1.1)
+#general(protocol=tcp:srcIP=1.1.1.1:dstSet=Berlin)
+#general(protocol=tcp:srcIP=1.1.1.1:dstSet=Berlin:dstPorts=443,80)
+Func:
+  Name: General
+  Version: beta
+  Body:
+    Main: ""
+    Arguments:
+      protocol:
+        Definition: "--protocol <protocol>"
+      srcIP:
+        Definition: "--source <srcIP>"
+      dstIP:
+        Definition: "--destination <dstIP>"
+      srcSet:
+        Definition: "-m set --match-set <srcSet> src"
+      dstSet:
+        Definition: "-m set --match-set <dstSet> dst"
+      srcPorts:
+        Definition: "-m multiport --sports <sport>"
+      dstPorts:
+        Definition: "-m multiport --dports <dport>"
+      comment:
+        Definition: "-m comment --comment <comment>"
+    Variables:
+      protocol:
+        Type: Single
+      srcIP:
+        Type: Single
+      dstIP:
+        Type: Single
+      srcSet:
+        Type: Single
+      dstSet:
+        Type: Single
+      sport:
+        Type: List
+      dport:
+        Type: List
+      comment:
+        Type: Single
