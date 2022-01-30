@@ -5,6 +5,7 @@ def generateIPSetScript(IPSetDict):
     fileName = '01-WGEasyWall-IPSet.sh'
     with open ( fileName, 'w') as rsh:
         rsh.write('''\
+#!/bin/bash
 echo "WGEasywall IPSet Generator"
 echo "-----------------------------"
 ''')
@@ -12,7 +13,6 @@ echo "-----------------------------"
     arrayDeleteVariable = "${{{0}{1}}}".format("Sets2deleteArray","[@]")
     with open ( fileName, 'a') as rsh:
         rsh.write('''\
-#!/bin/bash
 echo "Remove WGEasywall generated IPSets"
 echo "-----------------------------"
 Sets2delete="$(ipset list | grep 'Name:' | cut -d\  -f2 | grep 'WGEasywall' | tr '\\n' ' ')"

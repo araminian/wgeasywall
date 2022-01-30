@@ -5,12 +5,16 @@ import subprocess
 def Inject(functionDefiDict,function,argument,argumentValue):
 
     functionDefiArgument = functionDefiDict['Func']['Body']['Arguments']
-
+    
     if ( argument in functionDefiArgument):
-
+         
         functionBody=getFunctionBody(function)
+        # TODO: in ANY PRoblem here should be checked
         functionName = getActionFunctionName(function)
-        newFunctionBody= "{0}:{1}={2}".format(functionBody,argument,argumentValue)
+        if(functionBody == None):
+            newFunctionBody= "{0}={1}".format(argument,argumentValue)
+        else:
+            newFunctionBody= "{0}:{1}={2}".format(functionBody,argument,argumentValue)
         
         newFunction = "{0}({1})".format(functionName,newFunctionBody)
         return newFunction
@@ -54,12 +58,13 @@ def generate(RaaC,actionVersion,functionVersion,injectArgumets=None):
         return actionDefinition
     if(type(functionDefinition) == dict and 'ErrorCode' in functionDefinition):
         return functionDefinition
-
+    
     # Inject some arguments into the function
+    
     if (injectArgumets != None):
         for argument,value in injectArgumets.items():
             function = Inject(functionDefinition,function,argument,value)
-
+    
     actionPart = generateAction(action,actionDefinition)
     functionPart = generateRule(function,functionDefinition)
 

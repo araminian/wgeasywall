@@ -3,6 +3,7 @@ def generateIPTableScript(IPTableRules,DefaultAction='DROP',AppendMode=False,Ret
     fileName = '02-WGEasyWall-IPTable.sh'
     with open ( fileName, 'w') as rsh:
         rsh.write('''\
+#!/bin/bash
 echo "WGEasywall IPTable Rules Importer"
 echo "-----------------------------"
 ''')

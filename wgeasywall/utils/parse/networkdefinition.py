@@ -13,6 +13,7 @@ def getClientBasedControlLevel(networkDict,WGMode):
     for client in clientsInNetwork:
         if('UnderControl' not in client):
             controlledClients.append(client)
+            client['UnderControl'] = 'True'
         elif (client['UnderControl'] == 'True'):
             controlledClients.append(client) #client['Name']
         elif (client['UnderControl'] == 'False'):
