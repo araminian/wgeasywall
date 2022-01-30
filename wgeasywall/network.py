@@ -229,13 +229,13 @@ def initialize(
 networkFile: Path = typer.Option(...,"--network-file",help="The network definition file"),
 keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients"),
 graphName: str = typer.Option(None,"--graph-file-name",help="The generated GraphML file name. Default: Network Name"),
-WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mode. Default is WG mode.")
+WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WireGuard or Non-WireGuard mode. Default is WireGuard mode.")
 ):
 
     """
-    WGMode: Get network definition file and intializie network and generate GraphML file
+    WireGuard Mode: Get network definition file and intializie network and generate GraphML file
 
-    No-WGMode: Get network definition file and genrate GraphML file
+    Non-WireGuard Mode: Get network definition file and genrate GraphML file
 
     ------------
 
@@ -405,7 +405,7 @@ WGmode: bool = typer.Option(True,"--wg-mode/--no-wg-mode",help="WG or normal mod
         add_entry_multiple(database_name=networkName,table_name='clients',data=allClients)
 
     allClients2addGraph = copy.deepcopy(allClients)
-
+    
     for client in allClients2addGraph:
         client.pop('_id',None)
         client.pop('PublicKey',None)
@@ -487,6 +487,10 @@ def update(
         typer.echo("ERORR: Can't read Network Definition file.  {0}".format(networkDefiDict['ErrorMsg']),err=True)
         raise typer.Exit(code=1)
     
+    for client in networkDefiDict['WGNet']['Clients']:
+        if('UnderControl' not in client):
+            client['UnderControl'] = 'True'
+    
     networkDefiDictNoTouch = copy.deepcopy(networkDefiDict)
 
     networkName = networkDefiDict['WGNet']['Name']
@@ -509,6 +513,11 @@ def update(
         oldNetworkDefiDict = yaml.safe_load(files[-1].read().decode())
     else:
         oldNetworkDefiDict = get_configuration(oldNetworkFile)
+    
+    for client in oldNetworkDefiDict['WGNet']['Clients']:
+        if('UnderControl' not in client):
+            client['UnderControl'] = 'True'
+
     # GraphDryRun
     if (graphDryRun):
         networkName = "{0}-dry".format(networkName)
@@ -1177,7 +1186,7 @@ def update(
 def clone(
     srcNetwork: str = typer.Option(...,"--src-network",help="The source network"),
     networkDefinitionName: str = typer.Option(...,"--network-definition-name",help="The unique name of network definition file. Use @latest to get the latest network definition"),
-    dstNetwork: str = typer.Option(...,"--dst-network",help="The source network"),
+    dstNetwork: str = typer.Option(...,"--dst-network",help="The destination network"),
     keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directory which contains clients public key for uncontrolled clients")
 ):
     '''

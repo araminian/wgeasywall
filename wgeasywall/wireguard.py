@@ -87,7 +87,7 @@ def clientGenerate(clients,server,subnet,outputDir):
 
 @app.command()
 def generate(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
+    networkName: str = typer.Option(...,"--network",help="The network name which is initialized"),
     all: bool = typer.Option(False,"--all",help="Re-generate all configuration again. True or False"),
     clients2Config: str = typer.Option(None,"--clients",help="A list of clients which configurations will be generated for them"),
     outputDir: Path = typer.Option(...,"--output-dir",help="The directory which the generated configuration will be saved"),
@@ -102,19 +102,19 @@ def generate(
 
     # Generate wireguard configuration files for all nodes in 'WGNet1' and store it '/home/wgeasywall/wgconf' directroy
 
-    wgeasywall wireguard generate --network-name WGNet1 --all --output-dir /home/wgeasywall/wgconf
+    wgeasywall wireguard generate --network WGNet1 --all --output-dir /home/wgeasywall/wgconf
 
     ---
 
     # Generates 'Client1 and Client2' and 'server' wireguard configuration file
 
-    wgeasywall wireguard generate --network-name WGNet1 --clients Client1,Client2 --server --output-dir /home/wgeasywall/wgconf
+    wgeasywall wireguard generate --network WGNet1 --clients Client1,Client2 --server --output-dir /home/wgeasywall/wgconf
 
     ---
 
     # Only generate 'server' wireguard configuration file 
 
-    wgeasywall wireguard generate --network-name WGNet1 --server --output-dir /home/wgeasywall/wgconf
+    wgeasywall wireguard generate --network WGNet1 --server --output-dir /home/wgeasywall/wgconf
 
     """
     isInitialized = isNetworkInitialized(networkName)
@@ -220,7 +220,7 @@ def generate(
 
 @app.command()
 def key_generate(
-networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
+networkName: str = typer.Option(...,"--network",help="The network name which is initialized"),
 all: bool = typer.Option(False,"--all",help="Update all keys. True or False"),
 clients2Config: str = typer.Option(None,"--clients-list",help="A list of clients which their keys should be updated"),
 outputDir: Optional[Path] = typer.Option(None,"--output-dir",help="The directory which the generated configuration will be saved"),
@@ -237,18 +237,18 @@ keyDirectory : Optional[Path] = typer.Option(None,"--keys-dir",help="The directo
 
     # Update clients keys and not regenerate wireguard configuration file
 
-    wgeasywall wireguard key-generate --network-name WGNet1 --clients --keys-dir /home/wgeasywall/keysdir
+    wgeasywall wireguard key-generate --network WGNet1 --clients --keys-dir /home/wgeasywall/keysdir
 
     ---
 
     # Update clients keys and regenerate wireguard configuration files
-    wgeasywall wireguard key-generate --network-name WGNet1 --clients --keys-dir /home/wgeasywall/keysdir --output-dir /home/wgeasywall/wgconf
+    wgeasywall wireguard key-generate --network WGNet1 --clients --keys-dir /home/wgeasywall/keysdir --output-dir /home/wgeasywall/wgconf
 
     ---
 
     # Update only server keys and regenerate all wireguard configuration file
 
-    wgeasywall wireguard key-generate --network-name WGNet1 --server --output-dir /home/wgeasywall/wgconf
+    wgeasywall wireguard key-generate --network WGNet1 --server --output-dir /home/wgeasywall/wgconf
 
     """
 

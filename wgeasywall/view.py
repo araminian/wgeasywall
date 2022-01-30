@@ -45,7 +45,7 @@ def networks():
 
 @app.command()
 def subnet_report(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized")
+    networkName: str = typer.Option(...,"--network",help="The network name which is initialized")
 ):
     
     """
@@ -110,12 +110,12 @@ def subnet_report(
 
 @app.command()
 def network_definition(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
+    networkName: str = typer.Option(...,"--network",help="The network name which is initialized"),
     networkDefinitionName: str = typer.Option(None,"--network-definition-name",help="The unique name of network definition file. Use @latest to get the latest network definition")
 ):
 
     """
-    Get network definition. Use only --network-name to list all network definitions. Use --network-definition-name to get
+    Get network definition. Use only --network to list all network definitions. Use --network-definition-name to get
     the network definition.
     """
 
@@ -164,7 +164,7 @@ def network_definition(
 
 @app.command()
 def clients(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
+    networkName: str = typer.Option(...,"--network",help="The network name which is initialized"),
     verbose: int = typer.Option(0,"--verbose","-v",count=True)
 ):
 
@@ -234,7 +234,7 @@ def clients(
 
 @app.command()
 def server(
-    networkName: str = typer.Option(...,"--network-name",help="The network name which is initialized"),
+    networkName: str = typer.Option(...,"--network",help="The network name which is initialized"),
     verbose: int = typer.Option(0,"--verbose","-v",count=True)
 ):
     """
