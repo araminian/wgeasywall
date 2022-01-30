@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wgeasywall"
-version = "0.1.0"
+version = "0.1.1"
 description = "A CLI tool for managing WireGuard networks and IPTables by using GraphML"
 authors = ["Armin Aminian <rmin.aminian@gmail.com>"]
 readme = "README.md"
