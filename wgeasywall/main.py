@@ -22,7 +22,7 @@ import wgeasywall.iptable as iptable
 app = typer.Typer()
 app.add_typer(config.app,name="config",help="Commands related to configuration generator")
 app.add_typer(network.app,name="network",help="Commands related to WireGuard networks and graph")
-app.add_typer(view.app,name="view",help="Commands related to reprting")
+app.add_typer(view.app,name="view",help="Commands related to reporting")
 app.add_typer(wireguard.app,name="wireguard",help="Commands related to wireguard and its configurations")
 app.add_typer(ruleAsCode.app,name='RaaC',help="Commands related to the Rule as a Code and its configurations")
 app.add_typer(iptable.app,name='IPTables',help="Commands related to generating IPTables rules")
