@@ -30,8 +30,8 @@ def complete_Mode(incomplete: str):
 @app.command()
 def generate(
     graphFile: Path = typer.Option(...,"--graph-file",help="The GraphML file"),
-    AppendMode: bool = typer.Option(False,"--append-mode",help="IF 'Enabled' the WGEasywall chain will be inserted at the first of FORWARD chain. IF not it will be added at the end"),
-    ReturnMode: bool = typer.Option(False,"--return-mode",help="IF 'Enabled' if there is no rule match for packets, the packets don't back to FORWARD chain and will be matched with 'default-chain-policy'"),
+    AppendMode: bool = typer.Option(False,"--append-mode",help="IF 'Disabled' the WGEasywall chain will be inserted at the first of FORWARD chain. IF not it will be added at the end"),
+    ReturnMode: bool = typer.Option(False,"--return-mode",help="IF 'Disabled' if there is no rule match for packets, the packets don't back to FORWARD chain and will be matched with 'default-chain-policy'"),
     DefaultChainPolicy: str = typer.Option("DROP","--default-chain-policy",help="The default policy for WGEasywall chain which be useful if the 'Return mode' is disabled. It depends on the mode,1-'Smart' mode the default policy is 'DROP', 2-'Blacklist' mode the default policy is 'ACCEPT', 3-'Whitelist' mode the default policy is 'DROP'"),
     Mode: str = typer.Option("Smart","--mode",help="The mode which defines which kind of actions should be used",autocompletion=complete_Mode),
     blackListAction: str = typer.Option("DROP","--blacklist-action",help="By default 'DROP' action will be used in 'Blacklist' mode but a custom 'Reject' action can be set"),
@@ -152,7 +152,7 @@ def generate(
                     argumentsToInject['srcIP']=IPforRule
                 elif('IPAddress' in resource):
                     argumentsToInject['srcIP']=resource['IPAddress']
-
+            
             if (dstType == 'Group'):
                 dstSetName = dstEdgeName.replace("::","-")
                 argumentsToInject['dstSet'] = "WGEasywall-{0}".format(dstSetName)
@@ -171,6 +171,7 @@ def generate(
 
             comment= "WGEasywall generated rule for edge from {0} to {1}".format(srcEdgeName.replace("::","-"),dstEdgeName.replace("::","-"))
             argumentsToInject['comment'] = "'{0}'".format(comment)
+            
             # a Log rule
             specialRaaCsTemp = specialRaaCs.copy()
             for sRaaC in specialRaaCsTemp:
